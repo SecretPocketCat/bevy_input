@@ -7,31 +7,47 @@ use std::{
 use maplit::{hashset};
 use bevy::{input::{gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType}, ElementState, keyboard::KeyboardInput}, prelude::*};
 
-trait ActionMapInput : Hash + Eq + Clone + Send + Sync {}
+// todo: replace by a trait alias?
+pub trait ActionMapInput : Debug + Hash + Eq + Clone + Copy + Send + Sync {}
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum AxisInput {
+type KeyActionBinding = HashSet<KeyInputCode>;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum AxisBinding {
     Kb(KeyCode, KeyCode),
     Gamepad(GamepadAxisType)
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Axis {
-    deadzone: f32,
-    value: AxisInput,
-}
+// // todo: need to handle this not eq/hash trait impl for f32  - move deadzone somplace else?
+// #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+// pub struct AxisBinding {
+//     deadzone: f32,
+//     input: AxisBinding,
+// }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KeyInputCode {
     Kb(KeyCode),
     Gamepad(GamepadButtonType),
     Mouse(u8),
 }
 
-#[derive(Clone, Debug, PartialEq)]
-enum Binding {
-    Keys(HashSet<KeyInputCode>),
-    Axis(Axis),
+impl From<KeyCode> for KeyInputCode {
+    fn from(code: KeyCode) -> Self {
+        Self::Kb(code)
+    }
+}
+
+impl From<GamepadButtonType> for KeyInputCode {
+    fn from(button: GamepadButtonType) -> Self {
+        Self::Gamepad(button)
+    }
+}
+
+impl From<u8> for KeyInputCode {
+    fn from(mouse_key: u8) -> Self {
+        Self::Mouse(mouse_key)
+    }
 }
 
 // macro_rules! impl_from_key_input {
@@ -55,11 +71,6 @@ enum Binding {
 // impl_from_key_input!(Axis<AxisInput>, Binding::Axis);
 // impl_from_key_input!(Axis<XyAxes>, Binding::XyAxes);
 
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct ActionBindings {
-    bindings: Vec<Binding>,
-}
-
 #[derive(Debug, PartialEq)]
 pub enum KeyState {
     Pressed,
@@ -69,73 +80,88 @@ pub enum KeyState {
 }
 
 #[derive(Default, Debug, PartialEq)]
-struct ActiveKeyData {
+pub struct ActiveKeyData {
     duration: f32,
 }
 
-#[derive(Default)]
 pub struct ActionMap<TKeyAction, TAxisAction> {
-    key_actions: HashMap<TKeyAction, ActionBindings>,
-    axis_actions: HashMap<TAxisAction, ActionBindings>,
-    // todo: redo to bound keys...???
-    bound_keys: HashMap<KeyInputCode, Vec<(TKeyAction, ActionBindings)>>,
-    bound_gamepad_buttons: HashMap<GamepadButtonType, Vec<ActionBindings>>,
+    key_action_bindings: HashMap<TKeyAction, Vec<KeyActionBinding>>,
+    axis_action_bindings: HashMap<TAxisAction, HashSet<AxisBinding>>,
+    bound_keys: HashSet<KeyInputCode>,
+    bound_axes: HashSet<GamepadAxisType>,
+}
+
+impl<TKeyAction, TAxisAction> Default for ActionMap<TKeyAction, TAxisAction> {
+    fn default() -> Self {
+        Self {
+            key_action_bindings: Default::default(),
+            axis_action_bindings: Default::default(),
+            bound_keys: Default::default(),
+            bound_axes: Default::default() }
+    }
 }
 
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyAction, TAxisAction>
 {
     // todo: bind should validate actions don't overlap & return result
-    pub fn bind_key_action<K: Into<TKeyAction>, B: Into<Binding>>(&mut self, action: K, binding: B) -> &mut Self {
+    pub fn bind_key_action<K: Into<TKeyAction>, B: IntoIterator<Item = KeyInputCode>>(&mut self, action: K, binding: B) -> &mut Self {
         let key = action.into();
-        if !self.key_actions.contains_key(&key) {
-            self.key_actions.insert(key, Default::default());
+        let binding: KeyActionBinding = binding.into_iter().collect();
+        if !self.key_action_bindings.contains_key(&key) {
+            self.key_action_bindings.insert(key, Default::default());
         }
 
-        if let Some(action) = self.key_actions.get_mut(&key) {
-            let binding: Binding = binding.into();
-
-            match binding {
-                Binding::Keys(kb_keys) => {
-                    self.bound_keys.extend(kb_keys);
-                },
-                Binding::GamePadButtons(gp_btns) => {
-                    self.bound_gamepad_buttons.extend(gp_btns);
-                },
-                Binding::Axis(Axis { value: AxisInput::Kb(axis_key_neg, axis_key_pos), .. }) => {
-                    self.bound_keys.insert(axis_key_neg);
-                    self.bound_keys.insert(axis_key_pos);
-                },
-                _ => {}
-            }
-
-            action.bindings.push(binding);
+        if let Some(action) = self.key_action_bindings.get_mut(&key) {
+            let binding: KeyActionBinding = binding.into();
+            self.bound_keys.extend(binding.clone());
+            action.push(binding);
         }
-
-   
 
         self
     }
 
-    // todo: bind should validate actions don't overlap & return result
-    pub fn bind_axis<A: Into<TAxisAction>, B: Into<Binding>>(&mut self, action: A, axis_binding: B) -> &mut Self {
+    // todo: bind should validate actions don't overlap & return result?
+    // does that actually apply to axes?
+    pub fn bind_axis<A: Into<TAxisAction>, B: Into<AxisBinding>>(&mut self, action: A, axis_binding: B) -> &mut Self {
         let key = action.into();
-        if !self.axis_actions.contains_key(&key) {
-            self.axis_actions.insert(key, Default::default());
+        if !self.axis_action_bindings.contains_key(&key) {
+            self.axis_action_bindings.insert(key, Default::default());
         }
 
-        if let Some(actions) = self.axis_actions.get_mut(&key) {
-            actions.bindings.push(axis_binding.into());
+        if let Some(action) = self.axis_action_bindings.get_mut(&key) {
+            let axis_binding: AxisBinding = axis_binding.into();
+            match axis_binding {
+                AxisBinding::Kb(neg_key, pos_key) => {
+                    self.bound_keys.insert(KeyInputCode::Kb(neg_key));
+                    self.bound_keys.insert(KeyInputCode::Kb(pos_key));
+                },
+                AxisBinding::Gamepad(axis) => {
+                    self.bound_axes.insert(axis);
+                },
+            }
+
+            action.insert(axis_binding);
         }
         self
     }
 }
 
-#[derive(Default)]
 pub struct ActionInput<TKeyAction, TAxisAction> {
-    pub(crate) key_statuses: HashMap<KeyInputCode, Option<KeyState>>,
+    pub(crate) key_states: HashMap<KeyInputCode, Option<KeyState>>,
     key_actions: HashMap<TKeyAction, KeyState>,
     axes: HashMap<TAxisAction, f32>,
     gamepads: HashSet<Gamepad>,
+}
+
+impl<TKeyAction, TAxisAction> Default for ActionInput<TKeyAction, TAxisAction> {
+    fn default() -> Self {
+        Self { 
+            key_states: Default::default(),
+            key_actions: Default::default(),
+            axes: Default::default(),
+            gamepads: Default::default()
+        }
+    }
 }
 
 impl<TKey: ActionMapInput, TAxis: ActionMapInput> ActionInput<TKey, TAxis>
@@ -160,7 +186,7 @@ impl<TKey: ActionMapInput, TAxis: ActionMapInput> ActionInput<TKey, TAxis>
         self.is_key_in_state(key, KeyState::Used)
     }
 
-    pub fn use_key_action(&self, key: TKey) {
+    pub fn use_key_action(&mut self, key: TKey) {
         self.key_actions.insert(key.into(), KeyState::Used);
     }
 
@@ -189,12 +215,12 @@ impl<TKey: ActionMapInput, TAxis: ActionMapInput> ActionInput<TKey, TAxis>
 }
 
 // this should run after bevy input
-fn handle_key_events<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
+pub fn handle_key_events<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
     mut input: ResMut<ActionInput<TKey, TAxis>>,
     kb_input: Res<Input<KeyCode>>,
-    map: Mut<ActionMap<TKey, TAxis>>
+    map: Res<ActionMap<TKey, TAxis>>
 ) {
-    for code in map.bound_keys.keys() {
+    for code in map.bound_keys.iter() {
         if let KeyInputCode::Kb(key) = code {
             let mut state;
         
@@ -217,29 +243,80 @@ fn handle_key_events<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'st
                 state = None;
             }
     
-            input.key_statuses.insert(*code, state);
+            input.key_states.insert(*code, state);
         }
     }
 }
 
-fn process_key_actions<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
+pub fn process_key_actions<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
     mut input: ResMut<ActionInput<TKey, TAxis>>,
-    map: Mut<ActionMap<TKey, TAxis>>
+    map: Res<ActionMap<TKey, TAxis>>
 ) {
     // todo: process inputs into actions (and send action events)
     // this should probably be moved to its own system to handle mixed kb/mouse/gamepad
 
-    for (action_key, action) in map.key_actions {
+    'actions: for (action_key, action) in map.key_action_bindings.iter() {
         let current_state = input.get_key_action_state(&action_key);
         match current_state {
             None | Some(KeyState::Released(..) | KeyState::Used) => {
-                action.bindings.iter().find(|binding| {
-                    binding.
-                });
-                // look for initial press (from any of the keys?)
+                'bindings: for binding_keys in action {
+                    let mut just_pressed_at_least_one_key = false;
+
+                    for k in binding_keys.iter() {
+                        if let Some(key_state) = input.key_states.get(k) {
+                            match key_state {
+                                Some(KeyState::Pressed) => {
+                                    just_pressed_at_least_one_key = true;
+                                    continue;
+                                },
+                                Some(KeyState::Held(..)) => {
+                                    continue;
+                                },
+                                _ => { 
+                                    continue 'bindings
+                                },
+                            }
+                        }
+                        else {
+                            continue 'bindings
+                        }
+                    }
+
+                    // at least one 1 key was just pressed, the rest can be held
+                    if just_pressed_at_least_one_key {
+                        input.key_actions.insert(*action_key, KeyState::Pressed);
+                        continue 'actions;
+                    }
+                }
+
+                input.key_actions.remove(&action_key);
             },
             Some(KeyState::Pressed | KeyState::Held(..)) => {
-                // check if still pressed
+                // check if all keys are still held
+                'held_bindings: for binding_keys in action {
+                    for k in binding_keys.iter() {
+                        if let Some(key_state) = input.key_states.get(k) {
+                            match key_state {
+                                Some(KeyState::Pressed | KeyState::Held(..)) => {
+                                    continue;
+                                },
+                                _ => { 
+                                    continue 'held_bindings
+                                },
+                            }
+                        }
+                        else {
+                            continue 'held_bindings
+                        }
+                    }
+
+                    input.key_actions.insert(*action_key, KeyState::Held(ActiveKeyData {
+                        duration: 0. // todo: actual duration
+                    }));
+                    continue 'actions;
+                }
+
+                input.key_actions.remove(&action_key);
             },
         }
     }
