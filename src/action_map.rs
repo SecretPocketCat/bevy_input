@@ -14,8 +14,8 @@ type KeyActionBinding = HashSet<KeyInputCode>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum AxisBinding {
-    Kb(KeyCode, KeyCode),
-    Gamepad(GamepadAxisType)
+    Buttons(KeyInputCode, KeyInputCode),
+    GamepadAxis(GamepadAxisType),
 }
 
 // // todo: need to handle this not eq/hash trait impl for f32  - move deadzone somplace else?
@@ -143,14 +143,27 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
         }
 
         if let Some(action) = self.axis_action_bindings.get_mut(&key) {
-            let axis_binding: AxisBinding = axis_binding.into();
+            let mut axis_binding: AxisBinding = axis_binding.into();
             match axis_binding {
-                AxisBinding::Kb(neg_key, pos_key) => {
-                    self.bound_keys.insert(KeyInputCode::Kb(neg_key));
-                    self.bound_keys.insert(KeyInputCode::Kb(pos_key));
+                AxisBinding::Buttons(neg_key, pos_key) => {
+                    self.bound_keys.insert(neg_key);
+                    self.bound_keys.insert(pos_key);
                 },
-                AxisBinding::Gamepad(axis) => {
-                    self.bound_axes.insert(axis);
+                AxisBinding::GamepadAxis(axis) => {
+                    // todo: is this needed on main/does the dependency used by bevy fix this?
+                    if axis == GamepadAxisType::DPadX {
+                        self.bound_keys.insert(GamepadButtonType::DPadLeft.into());
+                        self.bound_keys.insert(GamepadButtonType::DPadRight.into());
+                        axis_binding = AxisBinding::Buttons(GamepadButtonType::DPadLeft.into(), GamepadButtonType::DPadRight.into());
+                    }
+                    else if axis == GamepadAxisType::DPadY {
+                        self.bound_keys.insert(GamepadButtonType::DPadUp.into());
+                        self.bound_keys.insert(GamepadButtonType::DPadDown.into());
+                        axis_binding = AxisBinding::Buttons(GamepadButtonType::DPadDown.into(), GamepadButtonType::DPadUp.into());
+                    }
+                    else {
+                        self.bound_axes.insert(axis);
+                    }
                 },
             }
 
@@ -163,6 +176,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
 pub struct ActionInput<TKeyAction, TAxisAction> {
     pub(crate) key_states: HashMap<KeyInputCode, Option<KeyState>>,
     key_actions: HashMap<TKeyAction, KeyState>,
+    gamepad_axes_values: HashMap<GamepadAxisType, f32>,
     axes: HashMap<TAxisAction, f32>,
     gamepads: HashSet<Gamepad>,
 }
@@ -172,6 +186,7 @@ impl<TKeyAction, TAxisAction> Default for ActionInput<TKeyAction, TAxisAction> {
         Self { 
             key_states: Default::default(),
             key_actions: Default::default(),
+            gamepad_axes_values: Default::default(),
             axes: Default::default(),
             gamepads: Default::default()
         }
@@ -226,6 +241,15 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAc
             false
         }
     }
+
+    fn key_is_pressed_or_held(&self, key_input_code: &KeyInputCode) -> bool {
+        if let Some(Some(KeyState::Pressed | KeyState::Held(..))) = self.key_states.get(key_input_code) {
+            true
+        }
+        else {
+            false
+        }
+    }
 }
 
 pub(crate) fn handle_keyboard_button_events<TKeyAction: ActionMapInput + 'static, TAxisAction: ActionMapInput + 'static>(
@@ -273,13 +297,15 @@ pub(crate) fn handle_gamepad_events<TKeyAction: ActionMapInput + 'static, TAxisA
                 }
             }
             GamepadEvent(gamepad, GamepadEventType::AxisChanged(axis_type, strength)) => {
-                // todo: handle
+                if map.bound_axes.get(axis_type).is_some() {
+                    input.gamepad_axes_values.insert(*axis_type, *strength);
+                }
             }
         }
     }
 }
 
-pub(crate) fn process_key_actions<TKeyAction: ActionMapInput + 'static, TAxisAction: ActionMapInput + 'static>(
+pub(crate) fn process_button_actions<TKeyAction: ActionMapInput + 'static, TAxisAction: ActionMapInput + 'static>(
     mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
     map: Res<ActionMap<TKeyAction, TAxisAction>>
 ) {
@@ -349,6 +375,38 @@ pub(crate) fn process_key_actions<TKeyAction: ActionMapInput + 'static, TAxisAct
                 }));
             },
         }
+    }
+}
+
+pub(crate) fn process_axis_actions<TKeyAction: ActionMapInput + 'static, TAxisAction: ActionMapInput + 'static>(
+    mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
+    map: Res<ActionMap<TKeyAction, TAxisAction>>
+) {
+    for (axis_action, bindings) in &map.axis_action_bindings {
+        let axis_value = bindings.iter().map(|b| {
+            let val: f32 = match b {
+                AxisBinding::Buttons(neg, pos) => {
+                    let mut val = 0.;
+                    if input.key_is_pressed_or_held(neg) {
+                        val -= 1.;
+                    }
+                    if input.key_is_pressed_or_held(pos) {
+                        val += 1.;
+                    }
+
+                    val
+                },
+                AxisBinding::GamepadAxis(gamepad_axis) => {
+                    *input.gamepad_axes_values.get(gamepad_axis).unwrap_or(&0.)
+                },
+            };
+
+            // todo: deadzone conf:
+            // todo: normalize the value given the deadzone (0.0..1.0)
+            if val.abs() > 0.2 { val } else { 0. }
+        }).fold(0., |a: f32, b: f32| if a.abs() > b.abs() { a } else { b });
+
+        input.axes.insert(*axis_action, axis_value);
     }
 }
 

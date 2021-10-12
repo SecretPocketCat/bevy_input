@@ -13,7 +13,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::action_map::{ActionInput, ActionMap, ActionMapInput, handle_keyboard_button_events, handle_mouse_button_events, handle_gamepad_events, process_key_actions};
+use crate::action_map::{ActionInput, ActionMap, ActionMapInput, handle_keyboard_button_events, handle_mouse_button_events, handle_gamepad_events, process_button_actions, process_axis_actions};
 
 pub struct ActionInputPlugin<'a, TKeyAction, TAxisAction>(std::marker::PhantomData<&'a TKeyAction>, std::marker::PhantomData<&'a TAxisAction>);
 
@@ -31,32 +31,33 @@ where
     'a: 'static,
 {
     fn build(&self, app: &mut App) {
-        const UPDATE_STATES_LABEL: &str = "UPDATE_STATES";
+        const PROCESS_INPUT_LABEL: &str = "UPDATE_STATES";
         app
         .init_resource::<ActionMap<TKeyAction, TAxisAction>>()
         .init_resource::<ActionInput<TKeyAction, TAxisAction>>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 handle_keyboard_button_events::<TKeyAction, TAxisAction>
-                    .label(UPDATE_STATES_LABEL)
+                    .label(PROCESS_INPUT_LABEL)
                     .after(InputSystem),
-            )
-            .add_system_to_stage(
+            ).add_system_to_stage(
                 CoreStage::PreUpdate,
                 handle_mouse_button_events::<TKeyAction, TAxisAction>
-                    .label(UPDATE_STATES_LABEL)
+                    .label(PROCESS_INPUT_LABEL)
                     .after(InputSystem),
-            )
-            .add_system_to_stage(
+            ).add_system_to_stage(
                 CoreStage::PreUpdate,
                 handle_gamepad_events::<TKeyAction, TAxisAction>
-                    .label(UPDATE_STATES_LABEL)
+                    .label(PROCESS_INPUT_LABEL)
                     .after(InputSystem),
-            )
-            .add_system_to_stage(
+            ).add_system_to_stage(
                 CoreStage::PreUpdate,
-                process_key_actions::<TKeyAction, TAxisAction>
-                    .after(UPDATE_STATES_LABEL),
+                process_button_actions::<TKeyAction, TAxisAction>
+                    .after(PROCESS_INPUT_LABEL),
+            ).add_system_to_stage(
+                CoreStage::PreUpdate,
+                process_axis_actions::<TKeyAction, TAxisAction>
+                    .after(PROCESS_INPUT_LABEL),
             );
     }
 }

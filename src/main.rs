@@ -8,6 +8,8 @@ use action_map::{ActionInput, ActionMap, ActionMapInput};
 use bevy::prelude::*;
 use plugin::ActionInputPlugin;
 
+use crate::action_map::AxisBinding;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAction {
     Jump,
@@ -18,7 +20,7 @@ impl ActionMapInput for InputAction {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAxis {
-
+    Horizontal,
 }
 
 impl ActionMapInput for InputAxis {}
@@ -40,10 +42,16 @@ fn setup(
 ) {
     map
         .bind_key_action(InputAction::Jump, vec![KeyCode::Space.into()])
-        .bind_key_action(InputAction::Jump, vec![KeyCode::W.into(), GamepadButtonType::South.into()])
+        .bind_key_action(InputAction::Jump, vec![KeyCode::W.into(), GamepadButtonType::North.into()])
+        .bind_key_action(InputAction::Jump, vec![GamepadButtonType::South.into()])
         .bind_key_action(InputAction::Shoot, vec![KeyCode::LShift.into()])
         .bind_key_action(InputAction::Shoot, vec![MouseButton::Left.into(), KeyCode::LControl.into()])
-        .bind_key_action(InputAction::Shoot, vec![MouseButton::Left.into(), KeyCode::RControl.into()]);
+        .bind_key_action(InputAction::Shoot, vec![MouseButton::Left.into(), KeyCode::RControl.into()])
+        .bind_axis(InputAxis::Horizontal, AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX))
+        .bind_axis(InputAxis::Horizontal, AxisBinding::GamepadAxis(GamepadAxisType::DPadX))
+        .bind_axis(InputAxis::Horizontal, AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()))
+        .bind_axis(InputAxis::Horizontal, AxisBinding::Buttons(KeyCode::A.into(), KeyCode::D.into()))
+        .bind_axis(InputAxis::Horizontal, AxisBinding::Buttons(MouseButton::Left.into(), MouseButton::Right.into()));
 
         commands.spawn_bundle(UiCameraBundle::default());
 
@@ -90,6 +98,6 @@ fn debug_actions(
         // println!("{:?} => {:?}", InputAction::Jump, input.get_key_action_state(&InputAction::Jump));
         // println!("{:?} => {:?}", InputAction::Shoot, input.get_key_action_state(&InputAction::Shoot));
 
-        text.sections[0].value = format!("{:?}\n{:?}\n\n{:?}\n{:?}\n", InputAction::Jump, input.get_key_action_state(&InputAction::Jump), InputAction::Shoot, input.get_key_action_state(&InputAction::Shoot));
+        text.sections[0].value = format!("{:?}\n{:?}\n\n{:?}\n{:?}\n{:?}\n{:?}\n", InputAction::Jump, input.get_key_action_state(&InputAction::Jump), InputAction::Shoot, input.get_key_action_state(&InputAction::Shoot), InputAxis::Horizontal, input.get_axis(&InputAxis::Horizontal));
     }
 }
