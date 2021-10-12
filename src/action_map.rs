@@ -178,33 +178,33 @@ impl<TKeyAction, TAxisAction> Default for ActionInput<TKeyAction, TAxisAction> {
     }
 }
 
-impl<TKey: ActionMapInput, TAxis: ActionMapInput> ActionInput<TKey, TAxis>
+impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAction, TAxisAction>
 {
-    pub fn get_key_action_state(&self, key: &TKey) -> Option<&KeyState> {
+    pub fn get_key_action_state(&self, key: &TKeyAction) -> Option<&KeyState> {
         self.key_actions.get(key)
     }
 
-    pub fn just_pressed(&self, key: TKey) -> bool {
+    pub fn just_pressed(&self, key: TKeyAction) -> bool {
         self.is_key_in_state(key, KeyState::Pressed)
     }
 
-    pub fn held(&self, key: TKey) -> bool {
+    pub fn held(&self, key: TKeyAction) -> bool {
         self.is_key_in_state(key, KeyState::Held(Default::default()))
     }
 
-    pub fn just_released(&self, key: TKey) -> bool {
+    pub fn just_released(&self, key: TKeyAction) -> bool {
         self.is_key_in_state(key, KeyState::Released(Default::default()))
     }
 
-    pub fn used(&self, key: TKey) -> bool {
+    pub fn used(&self, key: TKeyAction) -> bool {
         self.is_key_in_state(key, KeyState::Used)
     }
 
-    pub fn use_key_action(&mut self, key: TKey) {
+    pub fn use_key_action(&mut self, key: TKeyAction) {
         self.key_actions.insert(key.into(), KeyState::Used);
     }
 
-    pub fn get_axis(&self, axis: &TAxis) -> f32 {
+    pub fn get_axis(&self, axis: &TAxisAction) -> f32 {
         if let Some(axis) = self.axes.get(&axis) {
             *axis
         }
@@ -213,11 +213,11 @@ impl<TKey: ActionMapInput, TAxis: ActionMapInput> ActionInput<TKey, TAxis>
         }
     }
 
-    pub fn get_xy_axes(&self, x_axis: &TAxis, y_axis: &TAxis) -> Vec2 {
+    pub fn get_xy_axes(&self, x_axis: &TAxisAction, y_axis: &TAxisAction) -> Vec2 {
         Vec2::new(self.get_axis(x_axis), self.get_axis(y_axis))
     }
 
-    fn is_key_in_state(&self, key: TKey, state: KeyState) -> bool {
+    fn is_key_in_state(&self, key: TKeyAction, state: KeyState) -> bool {
         if let Some(key_state) = self.key_actions.get(&key.into()) {
             // compare enum variants (not their data)
             std::mem::discriminant(key_state) == std::mem::discriminant(&state)
@@ -228,10 +228,10 @@ impl<TKey: ActionMapInput, TAxis: ActionMapInput> ActionInput<TKey, TAxis>
     }
 }
 
-pub(crate) fn handle_keyboard_button_events<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
-    mut input: ResMut<ActionInput<TKey, TAxis>>,
+pub(crate) fn handle_keyboard_button_events<TKeyAction: ActionMapInput + 'static, TAxisAction: ActionMapInput + 'static>(
+    mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
     kb_input: Res<Input<KeyCode>>,
-    map: Res<ActionMap<TKey, TAxis>>
+    map: Res<ActionMap<TKeyAction, TAxisAction>>
 ) {
     for code in map.bound_keys.iter() {
         if let KeyInputCode::Kb(key) = code {
@@ -240,10 +240,10 @@ pub(crate) fn handle_keyboard_button_events<TKey: ActionMapInput + 'static, TAxi
     }
 }
 
-pub(crate) fn handle_mouse_button_events<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
-    mut input: ResMut<ActionInput<TKey, TAxis>>,
+pub(crate) fn handle_mouse_button_events<TKeyAction: ActionMapInput + 'static, TAxisAction: ActionMapInput + 'static>(
+    mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
     mouse_input: Res<Input<MouseButton>>,
-    map: Res<ActionMap<TKey, TAxis>>
+    map: Res<ActionMap<TKeyAction, TAxisAction>>
 ) {
     for code in map.bound_keys.iter() {
         if let KeyInputCode::Mouse(button) = code {
@@ -252,9 +252,36 @@ pub(crate) fn handle_mouse_button_events<TKey: ActionMapInput + 'static, TAxis: 
     }
 }
 
-pub(crate) fn process_key_actions<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
-    mut input: ResMut<ActionInput<TKey, TAxis>>,
-    map: Res<ActionMap<TKey, TAxis>>
+pub(crate) fn handle_gamepad_events<TKeyAction: ActionMapInput + 'static, TAxisAction: ActionMapInput + 'static>(
+    mut gamepad_events: EventReader<GamepadEvent>,
+    mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
+    map: Res<ActionMap<TKeyAction, TAxisAction>>,
+    gamepad_input: Res<Input<GamepadButton>>,)
+{
+    for event in gamepad_events.iter() {
+        match event {
+            GamepadEvent(gamepad, GamepadEventType::Connected) => {
+                input.gamepads.insert(*gamepad);
+            }
+            GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
+                input.gamepads.remove(gamepad);
+            }
+            GamepadEvent(gamepad, GamepadEventType::ButtonChanged(button, _strength)) => {
+                let input_code = KeyInputCode::Gamepad(*button);
+                if map.bound_keys.get(&input_code).is_some() {
+                    input.key_states.insert(input_code, get_button_state(&gamepad_input, &GamepadButton(*gamepad, *button)));
+                }
+            }
+            GamepadEvent(gamepad, GamepadEventType::AxisChanged(axis_type, strength)) => {
+                // todo: handle
+            }
+        }
+    }
+}
+
+pub(crate) fn process_key_actions<TKeyAction: ActionMapInput + 'static, TAxisAction: ActionMapInput + 'static>(
+    mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
+    map: Res<ActionMap<TKeyAction, TAxisAction>>
 ) {
     'actions: for (action_key, action) in map.key_action_bindings.iter() {
         let current_state = input.get_key_action_state(&action_key);
@@ -324,32 +351,6 @@ pub(crate) fn process_key_actions<TKey: ActionMapInput + 'static, TAxis: ActionM
         }
     }
 }
-
-// fn handle_gamepad_events<TKey: ActionMapInput, TAxis: ActionMapInput>(mut gamepad_events: EventReader<GamepadEvent>, mut input: ResMut<ActionInput<TKey, TAxis>>)
-// where
-//     TKey: 'static + Debug,
-// {
-//     for event in gamepad_events.iter() {
-//         match event {
-//             GamepadEvent(gamepad, GamepadEventType::Connected) => {
-//                 input.gamepads.insert(*gamepad);
-//             }
-//             GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
-//                 input.gamepads.remove(gamepad);
-//             }
-//             GamepadEvent(_, GamepadEventType::ButtonChanged(button, strength)) => {
-//                 if *strength > 0. {
-//                     input.pressed_buttons.insert(*button, *strength);
-//                 } else {
-//                     input.pressed_buttons.remove(button);
-//                 }
-//             }
-//             GamepadEvent(_, GamepadEventType::AxisChanged(axis_type, strength)) => {
-//                 // todo: handle
-//             }
-//         }
-//     }
-// }
 
 fn get_button_state<T: Copy + Eq + Hash>(
     input: &Input<T>,

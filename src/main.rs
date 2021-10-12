@@ -40,8 +40,7 @@ fn setup(
 ) {
     map
         .bind_key_action(InputAction::Jump, vec![KeyCode::Space.into()])
-        .bind_key_action(InputAction::Jump, vec![KeyCode::W.into()])
-        .bind_key_action(InputAction::Jump, vec![GamepadButtonType::South.into()])
+        .bind_key_action(InputAction::Jump, vec![KeyCode::W.into(), GamepadButtonType::South.into()])
         .bind_key_action(InputAction::Shoot, vec![KeyCode::LShift.into()])
         .bind_key_action(InputAction::Shoot, vec![MouseButton::Left.into(), KeyCode::LControl.into()])
         .bind_key_action(InputAction::Shoot, vec![MouseButton::Left.into(), KeyCode::RControl.into()]);
