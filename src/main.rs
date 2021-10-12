@@ -98,6 +98,6 @@ fn debug_actions(
         // println!("{:?} => {:?}", InputAction::Jump, input.get_key_action_state(&InputAction::Jump));
         // println!("{:?} => {:?}", InputAction::Shoot, input.get_key_action_state(&InputAction::Shoot));
 
-        text.sections[0].value = format!("{:?}\n{:?}\n\n{:?}\n{:?}\n{:?}\n{:?}\n", InputAction::Jump, input.get_key_action_state(&InputAction::Jump), InputAction::Shoot, input.get_key_action_state(&InputAction::Shoot), InputAxis::Horizontal, input.get_axis(&InputAxis::Horizontal));
+        text.sections[0].value = format!("{:?}\n{:?}\n\n{:?}\n{:?}\n\n{:?}\n{:?}\n", InputAction::Jump, input.get_key_action_state(&InputAction::Jump), InputAction::Shoot, input.get_key_action_state(&InputAction::Shoot), InputAxis::Horizontal, input.get_axis(&InputAxis::Horizontal));
     }
 }

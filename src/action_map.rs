@@ -151,15 +151,17 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
                 },
                 AxisBinding::GamepadAxis(axis) => {
                     // todo: is this needed on main/does the dependency used by bevy fix this?
+                    let mut rebind_to_buttons = |neg: GamepadButtonType, pos: GamepadButtonType| {
+                        self.bound_keys.insert(neg.into());
+                        self.bound_keys.insert(pos.into());
+                        axis_binding = AxisBinding::Buttons(neg.into(), pos.into());
+                    };
+
                     if axis == GamepadAxisType::DPadX {
-                        self.bound_keys.insert(GamepadButtonType::DPadLeft.into());
-                        self.bound_keys.insert(GamepadButtonType::DPadRight.into());
-                        axis_binding = AxisBinding::Buttons(GamepadButtonType::DPadLeft.into(), GamepadButtonType::DPadRight.into());
+                        rebind_to_buttons(GamepadButtonType::DPadLeft, GamepadButtonType::DPadRight);
                     }
                     else if axis == GamepadAxisType::DPadY {
-                        self.bound_keys.insert(GamepadButtonType::DPadUp.into());
-                        self.bound_keys.insert(GamepadButtonType::DPadDown.into());
-                        axis_binding = AxisBinding::Buttons(GamepadButtonType::DPadDown.into(), GamepadButtonType::DPadUp.into());
+                        rebind_to_buttons(GamepadButtonType::DPadDown, GamepadButtonType::DPadUp);
                     }
                     else {
                         self.bound_axes.insert(axis);
