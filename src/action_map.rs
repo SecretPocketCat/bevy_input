@@ -29,24 +29,38 @@ pub enum AxisBinding {
 pub enum KeyInputCode {
     Kb(KeyCode),
     Gamepad(GamepadButtonType),
-    Mouse(u8),
+    Mouse(MouseButton),
+}
+
+impl KeyInputCode {
+    fn keyboard_button(kb_button: KeyCode) -> Self {
+        Self::Kb(kb_button)
+    }
+
+    fn gamepad_button(gamepad_button: GamepadButtonType) -> Self {
+        Self::Gamepad(gamepad_button)
+    }
+
+    fn mouse_button(mouse_button: MouseButton) -> Self {
+        Self::Mouse(mouse_button)
+    }
 }
 
 impl From<KeyCode> for KeyInputCode {
-    fn from(code: KeyCode) -> Self {
-        Self::Kb(code)
+    fn from(kb_button: KeyCode) -> Self {
+        Self::keyboard_button(kb_button)
     }
 }
 
 impl From<GamepadButtonType> for KeyInputCode {
-    fn from(button: GamepadButtonType) -> Self {
-        Self::Gamepad(button)
+    fn from(gamepad_button: GamepadButtonType) -> Self {
+        Self::gamepad_button(gamepad_button)
     }
 }
 
-impl From<u8> for KeyInputCode {
-    fn from(mouse_key: u8) -> Self {
-        Self::Mouse(mouse_key)
+impl From<MouseButton> for KeyInputCode {
+    fn from(mouse_button: MouseButton) -> Self {
+        Self::mouse_button(mouse_button)
     }
 }
 
@@ -214,8 +228,7 @@ impl<TKey: ActionMapInput, TAxis: ActionMapInput> ActionInput<TKey, TAxis>
     }
 }
 
-// this should run after bevy input
-pub fn handle_key_events<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
+pub(crate) fn handle_keyboard_button_events<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
     mut input: ResMut<ActionInput<TKey, TAxis>>,
     kb_input: Res<Input<KeyCode>>,
     map: Res<ActionMap<TKey, TAxis>>
@@ -248,13 +261,43 @@ pub fn handle_key_events<TKey: ActionMapInput + 'static, TAxis: ActionMapInput +
     }
 }
 
-pub fn process_key_actions<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
+pub(crate) fn handle_mouse_button_events<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
+    mut input: ResMut<ActionInput<TKey, TAxis>>,
+    mouse_input: Res<Input<MouseButton>>,
+    map: Res<ActionMap<TKey, TAxis>>
+) {
+    for code in map.bound_keys.iter() {
+        if let KeyInputCode::Mouse(key) = code {
+            let mut state;
+        
+            if mouse_input.just_pressed(*key) {
+                state = Some(KeyState::Pressed);
+            }
+            else if mouse_input.just_released(*key) {
+                state = Some(KeyState::Released(ActiveKeyData {
+                    // todo: actual dur
+                    duration: 0.
+                }));
+            }
+            else if mouse_input.pressed(*key) {
+                state = Some(KeyState::Held(ActiveKeyData {
+                    // todo: actual dur
+                    duration: 0.
+                }));
+            }
+            else {
+                state = None;
+            }
+    
+            input.key_states.insert(*code, state);
+        }
+    }
+}
+
+pub(crate) fn process_key_actions<TKey: ActionMapInput + 'static, TAxis: ActionMapInput + 'static>(
     mut input: ResMut<ActionInput<TKey, TAxis>>,
     map: Res<ActionMap<TKey, TAxis>>
 ) {
-    // todo: process inputs into actions (and send action events)
-    // this should probably be moved to its own system to handle mixed kb/mouse/gamepad
-
     'actions: for (action_key, action) in map.key_action_bindings.iter() {
         let current_state = input.get_key_action_state(&action_key);
         match current_state {
@@ -316,7 +359,9 @@ pub fn process_key_actions<TKey: ActionMapInput + 'static, TAxis: ActionMapInput
                     continue 'actions;
                 }
 
-                input.key_actions.remove(&action_key);
+                input.key_actions.insert(*action_key, KeyState::Released(ActiveKeyData {
+                    duration: 0. // todo: actual duration
+                }));
             },
         }
     }

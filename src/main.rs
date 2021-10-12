@@ -28,19 +28,69 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::new())
         .add_startup_system(setup)
-        .add_system(print_actions)
+        .add_system(debug_actions)
         .run();
 }
 
-fn setup(mut map: ResMut<ActionMap<InputAction, InputAxis>>) {
+fn setup(
+    mut map: ResMut<ActionMap<InputAction, InputAxis>>,
+    mut commands: Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
+) {
     map
         .bind_key_action(InputAction::Jump, vec![KeyCode::Space.into()])
         .bind_key_action(InputAction::Jump, vec![KeyCode::W.into()])
+        .bind_key_action(InputAction::Jump, vec![GamepadButtonType::South.into()])
         .bind_key_action(InputAction::Shoot, vec![KeyCode::LShift.into()])
-        .bind_key_action(InputAction::Shoot, vec![KeyCode::Numpad0.into(), KeyCode::RControl.into()]);
+        .bind_key_action(InputAction::Shoot, vec![MouseButton::Left.into(), KeyCode::LControl.into()])
+        .bind_key_action(InputAction::Shoot, vec![MouseButton::Left.into(), KeyCode::RControl.into()]);
+
+        commands.spawn_bundle(UiCameraBundle::default());
+
+        commands
+            .spawn_bundle(NodeBundle {
+                style: Style {
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    size: Size{
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                    },
+                    position_type: PositionType::Absolute,
+                    flex_direction: FlexDirection::ColumnReverse,
+                    ..Default::default()
+                },
+                material: materials.add(Color::DARK_GRAY.into()),
+                ..Default::default()
+            }).with_children(|builder| {
+                builder.spawn_bundle(TextBundle {
+                    text: Text::with_section(
+                        "!",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Light.ttf"),
+                            font_size: 30.0,
+                            color: Color::ANTIQUE_WHITE,
+                            ..Default::default()
+                        },
+                        TextAlignment {
+                            horizontal: HorizontalAlign::Center,
+                            vertical: VerticalAlign::Center,
+                            ..Default::default()
+                        },
+                    ),
+                    ..Default::default()
+                });
+            });
 }
 
-fn print_actions(input: Res<ActionInput<InputAction, InputAxis>>) {
-    println!("{:?} => {:?}", InputAction::Jump, input.get_key_action_state(&InputAction::Jump));
-    println!("{:?} => {:?}", InputAction::Shoot, input.get_key_action_state(&InputAction::Shoot));
+fn debug_actions(
+    input: Res<ActionInput<InputAction, InputAxis>>,
+    mut query: Query<&mut Text>) {
+    for mut text in query.iter_mut() {
+        // println!("{:?} => {:?}", InputAction::Jump, input.get_key_action_state(&InputAction::Jump));
+        // println!("{:?} => {:?}", InputAction::Shoot, input.get_key_action_state(&InputAction::Shoot));
+
+        text.sections[0].value = format!("{:?}\n{:?}\n\n{:?}\n{:?}\n", InputAction::Jump, input.get_key_action_state(&InputAction::Jump), InputAction::Shoot, input.get_key_action_state(&InputAction::Shoot));
+    }
 }

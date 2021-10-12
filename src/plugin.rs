@@ -13,7 +13,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::action_map::{ActionInput, ActionMap, ActionMapInput, handle_key_events, process_key_actions};
+use crate::action_map::{ActionInput, ActionMap, ActionMapInput, handle_keyboard_button_events, handle_mouse_button_events, process_key_actions};
 
 pub struct ActionInputPlugin<'a, TKeyAction, TAxisAction>(std::marker::PhantomData<&'a TKeyAction>, std::marker::PhantomData<&'a TAxisAction>);
 
@@ -37,7 +37,13 @@ where
         .init_resource::<ActionInput<TKeyAction, TAxisAction>>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                handle_key_events::<TKeyAction, TAxisAction>
+                handle_keyboard_button_events::<TKeyAction, TAxisAction>
+                    .label(UPDATE_STATES_LABEL)
+                    .after(InputSystem),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                handle_mouse_button_events::<TKeyAction, TAxisAction>
                     .label(UPDATE_STATES_LABEL)
                     .after(InputSystem),
             )
