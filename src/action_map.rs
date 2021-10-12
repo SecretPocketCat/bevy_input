@@ -235,28 +235,7 @@ pub(crate) fn handle_keyboard_button_events<TKey: ActionMapInput + 'static, TAxi
 ) {
     for code in map.bound_keys.iter() {
         if let KeyInputCode::Kb(key) = code {
-            let mut state;
-        
-            if kb_input.just_pressed(*key) {
-                state = Some(KeyState::Pressed);
-            }
-            else if kb_input.just_released(*key) {
-                state = Some(KeyState::Released(ActiveKeyData {
-                    // todo: actual dur
-                    duration: 0.
-                }));
-            }
-            else if kb_input.pressed(*key) {
-                state = Some(KeyState::Held(ActiveKeyData {
-                    // todo: actual dur
-                    duration: 0.
-                }));
-            }
-            else {
-                state = None;
-            }
-    
-            input.key_states.insert(*code, state);
+            input.key_states.insert(*code, get_button_state(&kb_input, key));
         }
     }
 }
@@ -267,29 +246,8 @@ pub(crate) fn handle_mouse_button_events<TKey: ActionMapInput + 'static, TAxis: 
     map: Res<ActionMap<TKey, TAxis>>
 ) {
     for code in map.bound_keys.iter() {
-        if let KeyInputCode::Mouse(key) = code {
-            let mut state;
-        
-            if mouse_input.just_pressed(*key) {
-                state = Some(KeyState::Pressed);
-            }
-            else if mouse_input.just_released(*key) {
-                state = Some(KeyState::Released(ActiveKeyData {
-                    // todo: actual dur
-                    duration: 0.
-                }));
-            }
-            else if mouse_input.pressed(*key) {
-                state = Some(KeyState::Held(ActiveKeyData {
-                    // todo: actual dur
-                    duration: 0.
-                }));
-            }
-            else {
-                state = None;
-            }
-    
-            input.key_states.insert(*code, state);
+        if let KeyInputCode::Mouse(button) = code {
+            input.key_states.insert(*code, get_button_state(&mouse_input, button));
         }
     }
 }
@@ -392,3 +350,27 @@ pub(crate) fn process_key_actions<TKey: ActionMapInput + 'static, TAxis: ActionM
 //         }
 //     }
 // }
+
+fn get_button_state<T: Copy + Eq + Hash>(
+    input: &Input<T>,
+    button: &T
+) -> Option<KeyState> {
+    if input.just_pressed(*button) {
+        Some(KeyState::Pressed)
+    }
+    else if input.just_released(*button) {
+        Some(KeyState::Released(ActiveKeyData {
+            // todo: actual dur
+            duration: 0.
+        }))
+    }
+    else if input.pressed(*button) {
+        Some(KeyState::Held(ActiveKeyData {
+            // todo: actual dur
+            duration: 0.
+        }))
+    }
+    else {
+        None
+    }
+}
