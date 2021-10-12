@@ -4,7 +4,6 @@ use std::{
     fmt::Debug,
     hash::Hash,
 };
-use maplit::{hashset};
 use bevy::{
     input::{
         gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType},

@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 bevy = { git = "https://github.com/bevyengine/bevy", rev = "07ed1d053e7946a116ce3eef273fc93dd246f49d" }
-maplit = "1.0.2"
+# maplit = "1.0.2"
 
 [dev-dependencies]
-pretty_assertions = "1.0.0"
+# pretty_assertions = "1.0.0"
