@@ -47,7 +47,7 @@ fn setup(
         .bind_key_action(InputAction::Shoot, vec![KeyCode::LShift.into()])
         .bind_key_action(InputAction::Shoot, vec![MouseButton::Left.into(), KeyCode::LControl.into()])
         .bind_key_action(InputAction::Shoot, vec![MouseButton::Left.into(), KeyCode::RControl.into()])
-        .bind_axis(InputAxis::Horizontal, AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX))
+        .bind_axis_with_deadzone(InputAxis::Horizontal, AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX), 0.5)
         .bind_axis(InputAxis::Horizontal, AxisBinding::GamepadAxis(GamepadAxisType::DPadX))
         .bind_axis(InputAxis::Horizontal, AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()))
         .bind_axis(InputAxis::Horizontal, AxisBinding::Buttons(KeyCode::A.into(), KeyCode::D.into()))

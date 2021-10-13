@@ -6,6 +6,8 @@ use std::{
 };
 use bevy::{input::{gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType}, ElementState, keyboard::KeyboardInput}, prelude::*};
 
+const DEADZONE_PRECISION: f32 = 10000.;
+
 // todo: replace by a trait alias?
 pub trait ActionMapInput : Debug + Hash + Eq + Clone + Copy + Send + Sync {}
 
@@ -117,7 +119,7 @@ pub struct ActiveKeyData {
 
 pub struct ActionMap<TKeyAction, TAxisAction> {
     key_action_bindings: HashMap<TKeyAction, Vec<KeyActionBinding>>,
-    axis_action_bindings: HashMap<TAxisAction, HashSet<AxisBinding>>,
+    axis_action_bindings: HashMap<TAxisAction, HashSet<(AxisBinding, u32)>>,
     bound_keys: HashSet<KeyInputCode>,
     bound_axes: HashSet<GamepadAxisType>,
 }
@@ -154,6 +156,10 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
     // todo: bind should validate actions don't overlap & return result?
     // does that actually apply to axes?
     pub fn bind_axis<A: Into<TAxisAction>, B: Into<AxisBinding>>(&mut self, action: A, axis_binding: B) -> &mut Self {
+        self.bind_axis_with_deadzone(action, axis_binding, 0.)
+    }
+
+    pub fn bind_axis_with_deadzone<A: Into<TAxisAction>, B: Into<AxisBinding>>(&mut self, action: A, axis_binding: B, deadzone: f32) -> &mut Self {
         let key = action.into();
         if !self.axis_action_bindings.contains_key(&key) {
             self.axis_action_bindings.insert(key, Default::default());
@@ -186,7 +192,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
                 },
             }
 
-            action.insert(axis_binding);
+            action.insert((axis_binding, (deadzone * DEADZONE_PRECISION) as u32));
         }
         self
     }
@@ -405,8 +411,8 @@ pub(crate) fn process_axis_actions<TKeyAction: ActionMapInput + 'static, TAxisAc
 ) {
     for (axis_action, bindings) in &map.axis_action_bindings {
         let axis_value = bindings.iter().map(|b| {
-            let val: f32 = match b {
-                AxisBinding::Buttons(neg, pos) => {
+            let (val, deadzone) = match b {
+                (AxisBinding::Buttons(neg, pos), _) => {
                     let mut val = 0.;
                     if input.key_is_pressed_or_held(neg) {
                         val -= 1.;
@@ -415,16 +421,27 @@ pub(crate) fn process_axis_actions<TKeyAction: ActionMapInput + 'static, TAxisAc
                         val += 1.;
                     }
 
-                    val
+                    (val, 0)
                 },
-                AxisBinding::GamepadAxis(gamepad_axis) => {
-                    *input.gamepad_axes_values.get(gamepad_axis).unwrap_or(&0.)
+                (AxisBinding::GamepadAxis(gamepad_axis), deadzone) => {
+                    (*input.gamepad_axes_values.get(gamepad_axis).unwrap_or(&0.), *deadzone)
                 },
             };
 
-            // todo: deadzone conf:
-            // todo: normalize the value given the deadzone (0.0..1.0)
-            if val.abs() > 0.2 { val } else { 0. }
+            if deadzone == 0 {
+                val
+            }
+            else {
+                let deadzone = deadzone as f32 / DEADZONE_PRECISION;
+                if val.abs() > deadzone {
+                    // normalize the value back to the 0.0..1.0 range
+                    let normalized_value = (val.abs() - 1.) / deadzone + 1.;
+                    normalized_value * val.signum()
+                }
+                else {
+                    0.
+                }
+            }
         }).fold(0., |a: f32, b: f32| if a.abs() > b.abs() { a } else { b });
 
         input.axes.insert(*axis_action, axis_value);
