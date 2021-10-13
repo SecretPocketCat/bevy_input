@@ -81,7 +81,7 @@ fn setup(
                             ..Default::default()
                         },
                         TextAlignment {
-                            horizontal: HorizontalAlign::Center,
+                            horizontal: HorizontalAlign::Left,
                             vertical: VerticalAlign::Center,
                             ..Default::default()
                         },

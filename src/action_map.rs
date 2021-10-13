@@ -85,11 +85,29 @@ impl From<MouseButton> for KeyInputCode {
 // impl_from_key_input!(Axis<XyAxes>, Binding::XyAxes);
 
 #[derive(Debug, PartialEq)]
-pub enum KeyState {
+pub enum ButtonState {
+    Pressed,
+    Held,
+    Released,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ActionState {
     Pressed,
     Held(ActiveKeyData),
     Released(ActiveKeyData),
     Used,
+}
+
+impl ActionState {
+    pub fn duration(&self) -> f32 {
+        match self {
+            ActionState::Pressed => 0.,
+            ActionState::Held(data) => data.duration,
+            ActionState::Released(data) => data.duration,
+            ActionState::Used => 0.,
+        }
+    }
 }
 
 #[derive(Default, Debug, PartialEq)]
@@ -175,8 +193,8 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
 }
 
 pub struct ActionInput<TKeyAction, TAxisAction> {
-    pub(crate) key_states: HashMap<KeyInputCode, Option<KeyState>>,
-    key_actions: HashMap<TKeyAction, KeyState>,
+    pub(crate) button_states: HashMap<KeyInputCode, Option<ButtonState>>,
+    button_actions: HashMap<TKeyAction, ActionState>,
     gamepad_axes_values: HashMap<GamepadAxisType, f32>,
     axes: HashMap<TAxisAction, f32>,
     gamepads: HashSet<Gamepad>,
@@ -185,8 +203,8 @@ pub struct ActionInput<TKeyAction, TAxisAction> {
 impl<TKeyAction, TAxisAction> Default for ActionInput<TKeyAction, TAxisAction> {
     fn default() -> Self {
         Self { 
-            key_states: Default::default(),
-            key_actions: Default::default(),
+            button_states: Default::default(),
+            button_actions: Default::default(),
             gamepad_axes_values: Default::default(),
             axes: Default::default(),
             gamepads: Default::default()
@@ -196,28 +214,28 @@ impl<TKeyAction, TAxisAction> Default for ActionInput<TKeyAction, TAxisAction> {
 
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAction, TAxisAction>
 {
-    pub fn get_key_action_state(&self, key: &TKeyAction) -> Option<&KeyState> {
-        self.key_actions.get(key)
+    pub fn get_key_action_state(&self, key: &TKeyAction) -> Option<&ActionState> {
+        self.button_actions.get(key)
     }
 
     pub fn just_pressed(&self, key: TKeyAction) -> bool {
-        self.is_key_in_state(key, KeyState::Pressed)
+        self.is_key_in_state(key, ActionState::Pressed)
     }
 
     pub fn held(&self, key: TKeyAction) -> bool {
-        self.is_key_in_state(key, KeyState::Held(Default::default()))
+        self.is_key_in_state(key, ActionState::Held(Default::default()))
     }
 
     pub fn just_released(&self, key: TKeyAction) -> bool {
-        self.is_key_in_state(key, KeyState::Released(Default::default()))
+        self.is_key_in_state(key, ActionState::Released(Default::default()))
     }
 
     pub fn used(&self, key: TKeyAction) -> bool {
-        self.is_key_in_state(key, KeyState::Used)
+        self.is_key_in_state(key, ActionState::Used)
     }
 
     pub fn use_key_action(&mut self, key: TKeyAction) {
-        self.key_actions.insert(key.into(), KeyState::Used);
+        self.button_actions.insert(key.into(), ActionState::Used);
     }
 
     pub fn get_axis(&self, axis: &TAxisAction) -> f32 {
@@ -233,8 +251,8 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAc
         Vec2::new(self.get_axis(x_axis), self.get_axis(y_axis))
     }
 
-    fn is_key_in_state(&self, key: TKeyAction, state: KeyState) -> bool {
-        if let Some(key_state) = self.key_actions.get(&key.into()) {
+    fn is_key_in_state(&self, key: TKeyAction, state: ActionState) -> bool {
+        if let Some(key_state) = self.button_actions.get(&key.into()) {
             // compare enum variants (not their data)
             std::mem::discriminant(key_state) == std::mem::discriminant(&state)
         }
@@ -244,7 +262,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAc
     }
 
     fn key_is_pressed_or_held(&self, key_input_code: &KeyInputCode) -> bool {
-        if let Some(Some(KeyState::Pressed | KeyState::Held(..))) = self.key_states.get(key_input_code) {
+        if let Some(Some(ButtonState::Pressed | ButtonState::Held)) = self.button_states.get(key_input_code) {
             true
         }
         else {
@@ -260,7 +278,7 @@ pub(crate) fn handle_keyboard_button_events<TKeyAction: ActionMapInput + 'static
 ) {
     for code in map.bound_keys.iter() {
         if let KeyInputCode::Kb(key) = code {
-            input.key_states.insert(*code, get_button_state(&kb_input, key));
+            input.button_states.insert(*code, get_button_state(&kb_input, key));
         }
     }
 }
@@ -272,7 +290,7 @@ pub(crate) fn handle_mouse_button_events<TKeyAction: ActionMapInput + 'static, T
 ) {
     for code in map.bound_keys.iter() {
         if let KeyInputCode::Mouse(button) = code {
-            input.key_states.insert(*code, get_button_state(&mouse_input, button));
+            input.button_states.insert(*code, get_button_state(&mouse_input, button));
         }
     }
 }
@@ -294,7 +312,7 @@ pub(crate) fn handle_gamepad_events<TKeyAction: ActionMapInput + 'static, TAxisA
             GamepadEvent(gamepad, GamepadEventType::ButtonChanged(button, _strength)) => {
                 let input_code = KeyInputCode::Gamepad(*button);
                 if map.bound_keys.get(&input_code).is_some() {
-                    input.key_states.insert(input_code, get_button_state(&gamepad_input, &GamepadButton(*gamepad, *button)));
+                    input.button_states.insert(input_code, get_button_state(&gamepad_input, &GamepadButton(*gamepad, *button)));
                 }
             }
             GamepadEvent(gamepad, GamepadEventType::AxisChanged(axis_type, strength)) => {
@@ -308,23 +326,25 @@ pub(crate) fn handle_gamepad_events<TKeyAction: ActionMapInput + 'static, TAxisA
 
 pub(crate) fn process_button_actions<TKeyAction: ActionMapInput + 'static, TAxisAction: ActionMapInput + 'static>(
     mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
-    map: Res<ActionMap<TKeyAction, TAxisAction>>
+    map: Res<ActionMap<TKeyAction, TAxisAction>>,
+    time: Res<Time>,
 ) {
     'actions: for (action_key, action) in map.key_action_bindings.iter() {
         let current_state = input.get_key_action_state(&action_key);
+        let current_duration = current_state.unwrap_or(&ActionState::Used).duration();
         match current_state {
-            None | Some(KeyState::Released(..) | KeyState::Used) => {
+            None | Some(ActionState::Released(..) | ActionState::Used) => {
                 'bindings: for binding_keys in action {
                     let mut just_pressed_at_least_one_key = false;
 
                     for k in binding_keys.iter() {
-                        if let Some(key_state) = input.key_states.get(k) {
+                        if let Some(key_state) = input.button_states.get(k) {
                             match key_state {
-                                Some(KeyState::Pressed) => {
+                                Some(ButtonState::Pressed) => {
                                     just_pressed_at_least_one_key = true;
                                     continue;
                                 },
-                                Some(KeyState::Held(..)) => {
+                                Some(ButtonState::Held) => {
                                     continue;
                                 },
                                 _ => { 
@@ -339,20 +359,20 @@ pub(crate) fn process_button_actions<TKeyAction: ActionMapInput + 'static, TAxis
 
                     // at least one 1 key was just pressed, the rest can be held
                     if just_pressed_at_least_one_key {
-                        input.key_actions.insert(*action_key, KeyState::Pressed);
+                        input.button_actions.insert(*action_key, ActionState::Pressed);
                         continue 'actions;
                     }
                 }
 
-                input.key_actions.remove(&action_key);
+                input.button_actions.remove(&action_key);
             },
-            Some(KeyState::Pressed | KeyState::Held(..)) => {
+            Some(ActionState::Pressed | ActionState::Held(..)) => {
                 // check if all keys are still held
                 'held_bindings: for binding_keys in action {
                     for k in binding_keys.iter() {
-                        if let Some(key_state) = input.key_states.get(k) {
+                        if let Some(key_state) = input.button_states.get(k) {
                             match key_state {
-                                Some(KeyState::Pressed | KeyState::Held(..)) => {
+                                Some(ButtonState::Pressed | ButtonState::Held) => {
                                     continue;
                                 },
                                 _ => { 
@@ -365,14 +385,14 @@ pub(crate) fn process_button_actions<TKeyAction: ActionMapInput + 'static, TAxis
                         }
                     }
 
-                    input.key_actions.insert(*action_key, KeyState::Held(ActiveKeyData {
-                        duration: 0. // todo: actual duration
+                    input.button_actions.insert(*action_key, ActionState::Held(ActiveKeyData {
+                        duration: current_duration + time.delta_seconds(),
                     }));
                     continue 'actions;
                 }
 
-                input.key_actions.insert(*action_key, KeyState::Released(ActiveKeyData {
-                    duration: 0. // todo: actual duration
+                input.button_actions.insert(*action_key, ActionState::Released(ActiveKeyData {
+                    duration: current_duration + time.delta_seconds(),
                 }));
             },
         }
@@ -414,21 +434,15 @@ pub(crate) fn process_axis_actions<TKeyAction: ActionMapInput + 'static, TAxisAc
 fn get_button_state<T: Copy + Eq + Hash>(
     input: &Input<T>,
     button: &T
-) -> Option<KeyState> {
+) -> Option<ButtonState> {
     if input.just_pressed(*button) {
-        Some(KeyState::Pressed)
+        Some(ButtonState::Pressed)
     }
     else if input.just_released(*button) {
-        Some(KeyState::Released(ActiveKeyData {
-            // todo: actual dur
-            duration: 0.
-        }))
+        Some(ButtonState::Released)
     }
     else if input.pressed(*button) {
-        Some(KeyState::Held(ActiveKeyData {
-            // todo: actual dur
-            duration: 0.
-        }))
+        Some(ButtonState::Held)
     }
     else {
         None
