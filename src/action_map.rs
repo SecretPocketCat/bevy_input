@@ -129,8 +129,12 @@ impl<TKeyAction, TAxisAction> Default for ActionMap<TKeyAction, TAxisAction> {
 
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyAction, TAxisAction>
 {
+    pub fn bind_button_action<K: Into<TKeyAction>, B: Into<KeyInputCode>>(&mut self, action: K, button: B) -> &mut Self {
+        self.bind_button_combination_action(action, vec![button.into()])
+    }
+
     // todo: bind should validate actions don't overlap & return result
-    pub fn bind_key_action<K: Into<TKeyAction>, B: IntoIterator<Item = KeyInputCode>>(&mut self, action: K, binding: B) -> &mut Self {
+    pub fn bind_button_combination_action<K: Into<TKeyAction>, B: IntoIterator<Item = KeyInputCode>>(&mut self, action: K, binding: B) -> &mut Self {
         let key = action.into();
         let binding: KeyActionBinding = binding.into_iter().collect();
         if !self.key_action_bindings.contains_key(&key) {
