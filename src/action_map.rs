@@ -19,13 +19,6 @@ pub enum AxisBinding {
     GamepadAxis(GamepadAxisType),
 }
 
-// // todo: need to handle this not eq/hash trait impl for f32  - move deadzone somplace else?
-// #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-// pub struct AxisBinding {
-//     deadzone: f32,
-//     input: AxisBinding,
-// }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KeyInputCode {
     Kb(KeyCode),
@@ -173,7 +166,6 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
                     self.bound_keys.insert(pos_key);
                 },
                 AxisBinding::GamepadAxis(axis) => {
-                    // todo: is this needed on main/does the dependency used by bevy fix this?
                     let mut rebind_to_buttons = |neg: GamepadButtonType, pos: GamepadButtonType| {
                         self.bound_keys.insert(neg.into());
                         self.bound_keys.insert(pos.into());
