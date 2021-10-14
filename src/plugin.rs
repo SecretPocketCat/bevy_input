@@ -1,18 +1,11 @@
-use std::{
-    cmp::max,
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    hash::Hash,
-};
 use bevy::{
     input::{
-        gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType},
         InputSystem,
     },
     prelude::*,
 };
 
-use crate::action_map::{ActionInput, ActionMap, ActionMapInput, handle_keyboard_button_events, handle_mouse_button_events, handle_gamepad_events, process_button_actions, process_axis_actions};
+use crate::action_map::{ActionInput, ActionMap, ActionMapInput, handle_gamepad_events, handle_keyboard_button_events, handle_mouse_button_events, process_axis_actions, process_button_actions};
 
 pub struct ActionInputPlugin<'a, TKeyAction, TAxisAction>(std::marker::PhantomData<&'a TKeyAction>, std::marker::PhantomData<&'a TAxisAction>);
 
@@ -32,8 +25,8 @@ where
     fn build(&self, app: &mut App) {
         const PROCESS_INPUT_LABEL: &str = "UPDATE_STATES";
         app
-        .init_resource::<ActionMap<TKeyAction, TAxisAction>>()
-        .init_resource::<ActionInput<TKeyAction, TAxisAction>>()
+            .init_resource::<ActionMap<TKeyAction, TAxisAction>>()
+            .init_resource::<ActionInput<TKeyAction, TAxisAction>>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 handle_keyboard_button_events::<TKeyAction, TAxisAction>
@@ -58,5 +51,11 @@ where
                 process_axis_actions::<TKeyAction, TAxisAction>
                     .after(PROCESS_INPUT_LABEL),
             );
+
+        #[cfg(feature = "multiplayer")]
+        {
+            app
+                .init_resource::<crate::action_map::GamepadMap>();
+        }
     }
 }

@@ -1,14 +1,8 @@
 #![feature(destructuring_assignment)]
 #![feature(if_let_guard)]
 
-mod plugin;
-mod action_map;
-
-use action_map::{ActionInput, ActionMap, ActionMapInput};
 use bevy::prelude::*;
-use plugin::ActionInputPlugin;
-
-use crate::action_map::AxisBinding;
+use bevy_input::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAction {
@@ -65,7 +59,7 @@ fn setup(
                         height: Val::Percent(100.),
                     },
                     position_type: PositionType::Absolute,
-                    flex_direction: FlexDirection::ColumnReverse,
+                    flex_direction: FlexDirection::Row,
                     ..Default::default()
                 },
                 material: materials.add(Color::DARK_GRAY.into()),
@@ -98,6 +92,6 @@ fn debug_actions(
         // println!("{:?} => {:?}", InputAction::Jump, input.get_key_action_state(&InputAction::Jump));
         // println!("{:?} => {:?}", InputAction::Shoot, input.get_key_action_state(&InputAction::Shoot));
 
-        text.sections[0].value = format!("{:?}\n{:?}\n\n{:?}\n{:?}\n\n{:?}\n{:?}\n", InputAction::Jump, input.get_key_action_state(&InputAction::Jump), InputAction::Shoot, input.get_key_action_state(&InputAction::Shoot), InputAxis::Horizontal, input.get_axis(&InputAxis::Horizontal));
+        text.sections[0].value = format!("{:?}\n{:?}\n\n{:?}\n{:?}\n\n{:?}\n{:?}\n", InputAction::Jump, input.get_button_action_state(InputAction::Jump), InputAction::Shoot, input.get_button_action_state(InputAction::Shoot), InputAxis::Horizontal, input.get_axis(&InputAxis::Horizontal));
     }
 }

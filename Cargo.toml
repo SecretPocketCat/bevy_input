@@ -4,9 +4,23 @@ version = "0.1.0"
 authors = ["SecretPocketCat <jiridexterhanc@gmail.com>"]
 edition = "2021"
 
+[features]
+default = []
+multiplayer = []
+
 [dependencies]
 bevy = { git = "https://github.com/bevyengine/bevy", rev = "07ed1d053e7946a116ce3eef273fc93dd246f49d" }
 # maplit = "1.0.2"
 
 [dev-dependencies]
 # pretty_assertions = "1.0.0"
+
+[[example]]
+name = "singleplayer"
+path = "examples/singleplayer.rs"
+required-features = []
+
+[[example]]
+name = "multiplayer"
+path = "examples/multiplayer.rs"
+required-features = ["multiplayer"]
