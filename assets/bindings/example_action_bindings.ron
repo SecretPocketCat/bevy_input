@@ -1,0 +1,90 @@
+(
+    key_action_bindings: {
+        (
+            id: Some(2),
+            value: Dodge,
+        ): [
+            [
+                Gamepad(South),
+            ],
+        ],
+        (
+            id: Some(4),
+            value: Dodge,
+        ): [
+            [
+                Kb(Space),
+            ],
+        ],
+        (
+            id: Some(1),
+            value: Dodge,
+        ): [
+            [
+                Gamepad(South),
+            ],
+        ],
+        (
+            id: Some(3),
+            value: Dodge,
+        ): [
+            [
+                Mouse(Left),
+            ],
+        ],
+    },
+    axis_action_bindings: {
+        (
+            id: Some(4),
+            value: Horizontal,
+        ): [
+            (Buttons(Kb(A), Kb(D)), 0),
+        ],
+        (
+            id: Some(4),
+            value: Vertical,
+        ): [
+            (Buttons(Kb(S), Kb(W)), 0),
+        ],
+        (
+            id: Some(2),
+            value: Horizontal,
+        ): [
+            (Buttons(Gamepad(DPadLeft), Gamepad(DPadRight)), 0),
+            (GamepadAxis(LeftStickX), 0),
+        ],
+        (
+            id: Some(1),
+            value: Horizontal,
+        ): [
+            (Buttons(Gamepad(DPadLeft), Gamepad(DPadRight)), 0),
+            (GamepadAxis(LeftStickX), 0),
+        ],
+        (
+            id: Some(2),
+            value: Vertical,
+        ): [
+            (Buttons(Gamepad(DPadDown), Gamepad(DPadUp)), 0),
+            (GamepadAxis(LeftStickY), 0),
+        ],
+        (
+            id: Some(3),
+            value: Horizontal,
+        ): [
+            (Buttons(Kb(Left), Kb(Right)), 0),
+        ],
+        (
+            id: Some(1),
+            value: Vertical,
+        ): [
+            (GamepadAxis(LeftStickY), 0),
+            (Buttons(Gamepad(DPadDown), Gamepad(DPadUp)), 0),
+        ],
+        (
+            id: Some(3),
+            value: Vertical,
+        ): [
+            (Buttons(Kb(Down), Kb(Up)), 0),
+        ],
+    },
+)

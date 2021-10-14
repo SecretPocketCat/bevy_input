@@ -7,12 +7,15 @@ edition = "2021"
 [features]
 default = []
 multiplayer = []
+serialize = ["serde", "bevy/serialize"]
 
 [dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy", rev = "07ed1d053e7946a116ce3eef273fc93dd246f49d" }
-# maplit = "1.0.2"
+bevy = { git = "https://github.com/bevyengine/bevy", rev = "07ed1d053e7946a116ce3eef273fc93dd246f49d", default-features = false, features = ["bevy_gilrs"] }
+serde = { version = "1.0.130", features = ["derive"], optional = true }
 
 [dev-dependencies]
+bevy = { git = "https://github.com/bevyengine/bevy", rev = "07ed1d053e7946a116ce3eef273fc93dd246f49d" }
+ron = "0.6.5"
 # pretty_assertions = "1.0.0"
 
 [[example]]
@@ -24,3 +27,8 @@ required-features = []
 name = "multiplayer"
 path = "examples/multiplayer.rs"
 required-features = ["multiplayer"]
+
+[[example]]
+name = "serialize"
+path = "examples/serialize.rs"
+required-features = ["multiplayer", "serialize"]

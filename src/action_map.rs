@@ -14,12 +14,14 @@ pub trait ActionMapInput : Debug + Hash + Eq + Clone + Copy + Send + Sync {}
 type KeyActionBinding = HashSet<ButtonCode>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum AxisBinding {
     Buttons(ButtonCode, ButtonCode),
     GamepadAxis(GamepadAxisType),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum ButtonCode {
     Kb(KeyCode),
     Gamepad(GamepadButtonType),
@@ -99,6 +101,7 @@ pub struct ActiveKeyData {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct PlayerData<T> {
     id: Option<usize>,
     value: T,
@@ -128,14 +131,18 @@ impl<T> From<T> for PlayerData<T> {
     }
 }
 
-pub struct ActionMap<TKeyAction, TAxisAction> {
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct ActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
     key_action_bindings: HashMap<PlayerData<TKeyAction>, Vec<KeyActionBinding>>,
     axis_action_bindings: HashMap<PlayerData<TAxisAction>, HashSet<(AxisBinding, u32)>>,
+    #[cfg_attr(feature = "serialize", serde(skip))]
     bound_keys: HashSet<PlayerData<ButtonCode>>,
+    #[cfg_attr(feature = "serialize", serde(skip))]
     bound_axes: HashSet<GamepadAxisType>,
 }
 
-impl<TKeyAction, TAxisAction> Default for ActionMap<TKeyAction, TAxisAction> {
+impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> Default for ActionMap<TKeyAction, TAxisAction> {
     fn default() -> Self {
         Self {
             key_action_bindings: Default::default(),
@@ -188,6 +195,21 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
 
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyAction, TAxisAction>
 {
+    // todo: actually a load from path/assetpath fn that handles the loading?
+    pub fn set_bindings(&mut self, map: Self) {
+        for action in map.key_action_bindings {
+            for b in action.1 {
+                self.bind_button_combination_action_internal(action.0.value, b, action.0.id);
+            }
+        }
+
+        for action in map.axis_action_bindings {
+            for b in action.1 {
+                self.bind_axis_with_deadzone_internal(action.0.value, b.0, b.1 as f32 / DEADZONE_PRECISION, action.0.id);
+            }
+        }
+    }
+
     fn bind_button_action_internal<K: Into<TKeyAction>, B: Into<ButtonCode>>(&mut self, action: K, button: B, player_id: Option<usize>) -> &mut Self {
         self.bind_button_combination_action_internal(action, vec![button.into()], player_id)
     }
