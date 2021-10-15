@@ -9,15 +9,11 @@ enum InputAction {
     Dodge,
 }
 
-impl ActionMapInput for InputAction {}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAxis {
     Horizontal,
     Vertical,
 }
-
-impl ActionMapInput for InputAxis {}
 
 #[derive(Component)]
 struct Player(usize);

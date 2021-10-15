@@ -10,14 +10,10 @@ enum InputAction {
     Shoot,
 }
 
-impl ActionMapInput for InputAction {}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAxis {
     Horizontal,
 }
-
-impl ActionMapInput for InputAxis {}
 
 fn main() {
     App::new()

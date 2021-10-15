@@ -9,15 +9,11 @@ enum InputAction {
     Dodge,
 }
 
-impl ActionMapInput for InputAction {}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 enum InputAxis {
     Horizontal,
     Vertical,
 }
-
-impl ActionMapInput for InputAxis {}
 
 #[derive(Component)]
 struct Player(usize);
@@ -38,6 +34,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
+    // todo: load this properly using the asset server?
     let bindings_ron = std::fs::read_to_string("assets/bindings/example_action_bindings.ron").unwrap();
     let bindings = ron::de::from_str::<ActionMap<InputAction, InputAxis>>(&bindings_ron).unwrap();
     map.set_bindings(bindings);

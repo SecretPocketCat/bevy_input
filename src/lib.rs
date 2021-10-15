@@ -1,5 +1,6 @@
 #![feature(destructuring_assignment)]
 #![feature(if_let_guard)]
+#![feature(trait_alias)]
 
 mod plugin;
 mod action_map;
