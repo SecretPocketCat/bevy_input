@@ -5,9 +5,6 @@ macro_rules! inputs_vec {
     );
 }
 
-// todo: test coverage
-// test
-
 #[cfg(test)]
 mod tests {
     use bevy::prelude::{GamepadButtonType, KeyCode, MouseButton};
