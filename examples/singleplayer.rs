@@ -32,11 +32,11 @@ fn setup(
 ) {
     map
         .bind_button_action(InputAction::Jump, KeyCode::Space)
-        .bind_button_combination_action(InputAction::Jump, vec![KeyCode::W.into(), GamepadButtonType::North.into()])
+        .bind_button_combination_action(InputAction::Jump, inputs_vec![KeyCode::W, GamepadButtonType::North])
         .bind_button_action(InputAction::Jump, GamepadButtonType::South)
         .bind_button_action(InputAction::Shoot, KeyCode::LShift)
-        .bind_button_combination_action(InputAction::Shoot, vec![MouseButton::Left.into(), KeyCode::LControl.into()])
-        .bind_button_combination_action(InputAction::Shoot, vec![MouseButton::Left.into(), KeyCode::RControl.into()])
+        .bind_button_combination_action(InputAction::Shoot, inputs_vec![MouseButton::Left, KeyCode::LControl])
+        .bind_button_combination_action(InputAction::Shoot, inputs_vec![MouseButton::Left, KeyCode::RControl])
         .bind_axis_with_deadzone(InputAxis::Horizontal, AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX), 0.5)
         .bind_axis(InputAxis::Horizontal, AxisBinding::GamepadAxis(GamepadAxisType::DPadX))
         .bind_axis(InputAxis::Horizontal, AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()))

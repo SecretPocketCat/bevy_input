@@ -8,7 +8,6 @@ use bevy::{input::{gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType}, E
 
 const DEADZONE_PRECISION: f32 = 10000.;
 
-// todo: replace by a trait alias?
 pub trait ActionMapInput = Debug + Hash + Eq + Clone + Copy + Send + Sync;
 
 type KeyActionBinding = HashSet<ButtonCode>;
@@ -28,7 +27,6 @@ pub enum ButtonCode {
     Mouse(MouseButton),
 }
 
-// todo: reduce duplication by using a macro
 impl ButtonCode {
     fn keyboard_button(kb_button: KeyCode) -> Self {
         Self::Kb(kb_button)
