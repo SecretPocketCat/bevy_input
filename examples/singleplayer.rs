@@ -1,6 +1,3 @@
-#![feature(destructuring_assignment)]
-#![feature(if_let_guard)]
-
 use bevy::prelude::*;
 use bevy_input::*;
 
@@ -42,6 +39,9 @@ fn setup(
         .bind_axis(InputAxis::Horizontal, AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()))
         .bind_axis(InputAxis::Horizontal, AxisBinding::Buttons(KeyCode::A.into(), KeyCode::D.into()))
         .bind_axis(InputAxis::Horizontal, AxisBinding::Buttons(MouseButton::Left.into(), MouseButton::Right.into()));
+
+    // uncomment to triger a mapping validation error
+    // map.bind_button_combination_action(InputAction::Shoot, inputs_vec![MouseButton::Left, KeyCode::Left]);
 
         commands.spawn_bundle(UiCameraBundle::default());
 

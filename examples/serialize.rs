@@ -20,6 +20,11 @@ struct Player(usize);
 
 fn main() {
     App::new()
+        .add_asset(WindowDescriptor {
+            width: 800.,
+            height: 800.,
+            ..Default::default()
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::new())
         .add_startup_system(setup)

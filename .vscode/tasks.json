@@ -20,6 +20,37 @@
       "args": ["--features", "bevy/dynamic"],
       "problemMatcher": ["$rustc"],
       "label": "bevy: run dynamic"
+    },
+    {
+      "type": "cargo",
+      "command": "run",
+      "args": [
+        "--example",
+        "serialize",
+        "--features",
+        "bevy/dynamic multiplayer serialize"
+      ],
+      "problemMatcher": ["$rustc"],
+      "label": "serialize example (dynamic)"
+    },
+    {
+      "type": "cargo",
+      "command": "run",
+      "args": ["--example", "singleplayer", "--features", "bevy/dynamic"],
+      "problemMatcher": ["$rustc"],
+      "label": "singleplayer example (dynamic)"
+    },
+    {
+      "type": "cargo",
+      "command": "run",
+      "args": [
+        "--example",
+        "multiplayer",
+        "--features",
+        "bevy/dynamic multiplayer"
+      ],
+      "problemMatcher": ["$rustc"],
+      "label": "multiplayer example (dynamic)"
     }
   ]
 }

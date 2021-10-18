@@ -5,6 +5,9 @@ use std::{
     hash::Hash,
 };
 use bevy::{input::{gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType}, ElementState, keyboard::KeyboardInput}, prelude::*};
+use itertools::Itertools;
+
+use crate::inputs_vec;
 
 const DEADZONE_PRECISION: f32 = 10000.;
 
@@ -137,6 +140,8 @@ pub struct ActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
     #[cfg_attr(feature = "serialize", serde(skip))]
     bound_keys: HashSet<PlayerData<ButtonCode>>,
     #[cfg_attr(feature = "serialize", serde(skip))]
+    bound_key_combinations: HashSet<PlayerData<Vec<ButtonCode>>>,
+    #[cfg_attr(feature = "serialize", serde(skip))]
     bound_axes: HashSet<GamepadAxisType>,
 }
 
@@ -146,6 +151,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> Default for Action
             key_action_bindings: Default::default(),
             axis_action_bindings: Default::default(),
             bound_keys: Default::default(),
+            bound_key_combinations: Default::default(),
             bound_axes: Default::default(),
         }
     }
@@ -216,6 +222,22 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
     fn bind_button_combination_action_internal<K: Into<TKeyAction>, B: IntoIterator<Item = ButtonCode>>(&mut self, action: K, binding: B, player_id: Option<usize>) -> &mut Self {
         let key = PlayerData { value: action.into(), id: player_id };
         let binding: KeyActionBinding = binding.into_iter().collect();
+
+        #[cfg(feature = "validation")]
+        {
+            let b = binding.clone();
+            if self.bound_key_combinations.get(&PlayerData::<Vec<ButtonCode>>::from(b.iter().collect())).is_none() {
+                let binding_key_combinations = (1..=b.len())
+                    .into_iter()
+                    // todo: replace itertools:combinations by own fn to get rid of the dep?
+                    .flat_map(|l| { b.iter().map(|k| PlayerData::<ButtonCode>::from(*k)).combinations(l) });
+                self.bound_key_combinations.extend(binding_key_combinations);
+            }
+            else {
+                panic!("Oh no, a terrible thing has happened: {:?}!", b);
+            }
+        }
+
         if !self.key_action_bindings.contains_key(&key) {
             self.key_action_bindings.insert(key, Default::default());
         }
