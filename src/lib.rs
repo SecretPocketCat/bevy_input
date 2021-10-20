@@ -6,6 +6,9 @@ mod plugin;
 mod action_map;
 mod macros;
 
+#[cfg(feature = "validation")]
+mod validation;
+
 pub use action_map::{ActionInput, ActionMap, ActionMapInput, AxisBinding, ButtonCode};
 pub use plugin::ActionInputPlugin;
 pub use macros::*;

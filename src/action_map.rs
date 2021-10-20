@@ -13,7 +13,7 @@ const DEADZONE_PRECISION: f32 = 10000.;
 
 pub trait ActionMapInput = Debug + Hash + Eq + Clone + Copy + Send + Sync;
 
-type KeyActionBinding = HashSet<ButtonCode>;
+pub(crate) type KeyActionBinding = HashSet<ButtonCode>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -104,8 +104,8 @@ pub struct ActiveKeyData {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct PlayerData<T> {
-    id: Option<usize>,
-    value: T,
+    pub(crate) id: Option<usize>,
+    pub(crate) value: T,
 }
 
 type DeviceData<T> = PlayerData<T>;
@@ -139,8 +139,12 @@ pub struct ActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
     axis_action_bindings: HashMap<PlayerData<TAxisAction>, HashSet<(AxisBinding, u32)>>,
     #[cfg_attr(feature = "serialize", serde(skip))]
     bound_keys: HashSet<PlayerData<ButtonCode>>,
+    #[cfg(feature = "validation")]
     #[cfg_attr(feature = "serialize", serde(skip))]
-    bound_key_combinations: HashSet<PlayerData<Vec<ButtonCode>>>,
+    pub(crate) bound_key_combinations: HashSet<PlayerData<Vec<ButtonCode>>>,
+    #[cfg(feature = "validation")]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    pub(crate) potential_bound_key_combinations: HashSet<PlayerData<Vec<ButtonCode>>>,
     #[cfg_attr(feature = "serialize", serde(skip))]
     bound_axes: HashSet<GamepadAxisType>,
 }
@@ -152,6 +156,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> Default for Action
             axis_action_bindings: Default::default(),
             bound_keys: Default::default(),
             bound_key_combinations: Default::default(),
+            potential_bound_key_combinations: Default::default(),
             bound_axes: Default::default(),
         }
     }
@@ -225,16 +230,11 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
 
         #[cfg(feature = "validation")]
         {
-            let b = binding.clone();
-            if self.bound_key_combinations.get(&PlayerData::<Vec<ButtonCode>>::from(b.iter().collect())).is_none() {
-                let binding_key_combinations = (1..=b.len())
-                    .into_iter()
-                    // todo: replace itertools:combinations by own fn to get rid of the dep?
-                    .flat_map(|l| { b.iter().map(|k| PlayerData::<ButtonCode>::from(*k)).combinations(l) });
-                self.bound_key_combinations.extend(binding_key_combinations);
+            if crate::validation::validate(self, player_id, binding.clone()) {
             }
             else {
-                panic!("Oh no, a terrible thing has happened: {:?}!", b);
+                // todo: don't panic, just return a result
+                panic!("Oh no, a terrible thing has happened: {:?}!", binding);
             }
         }
 

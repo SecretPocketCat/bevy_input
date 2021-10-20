@@ -41,7 +41,9 @@ fn setup(
         .bind_axis(InputAxis::Horizontal, AxisBinding::Buttons(MouseButton::Left.into(), MouseButton::Right.into()));
 
     // uncomment to triger a mapping validation error
-    // map.bind_button_combination_action(InputAction::Shoot, inputs_vec![MouseButton::Left, KeyCode::Left]);
+    // map.bind_button_combination_action(InputAction::Shoot, inputs_vec![KeyCode::A, KeyCode::B, KeyCode::C]);
+    // map.bind_button_combination_action(InputAction::Shoot, inputs_vec![KeyCode::B, KeyCode::A]);
+    // map.bind_button_combination_action(InputAction::Shoot, inputs_vec![KeyCode::B, KeyCode::D]);
 
         commands.spawn_bundle(UiCameraBundle::default());
 
