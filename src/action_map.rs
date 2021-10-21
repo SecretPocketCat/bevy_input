@@ -141,10 +141,8 @@ pub struct ActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
     bound_keys: HashSet<PlayerData<ButtonCode>>,
     #[cfg(feature = "validation")]
     #[cfg_attr(feature = "serialize", serde(skip))]
-    pub(crate) bound_key_combinations: HashSet<PlayerData<Vec<ButtonCode>>>,
+    pub(crate) bound_key_combinations: HashMap<PlayerData<Vec<ButtonCode>>, Vec<Vec<ButtonCode>>>,
     #[cfg(feature = "validation")]
-    #[cfg_attr(feature = "serialize", serde(skip))]
-    pub(crate) potential_bound_key_combinations: HashSet<PlayerData<Vec<ButtonCode>>>,
     #[cfg_attr(feature = "serialize", serde(skip))]
     bound_axes: HashSet<GamepadAxisType>,
 }
@@ -156,7 +154,6 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> Default for Action
             axis_action_bindings: Default::default(),
             bound_keys: Default::default(),
             bound_key_combinations: Default::default(),
-            potential_bound_key_combinations: Default::default(),
             bound_axes: Default::default(),
         }
     }
