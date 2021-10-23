@@ -141,7 +141,7 @@ pub struct ActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
     bound_keys: HashSet<PlayerData<ButtonCode>>,
     #[cfg(feature = "validation")]
     #[cfg_attr(feature = "serialize", serde(skip))]
-    pub(crate) bound_key_combinations: HashMap<PlayerData<Vec<ButtonCode>>, Vec<Vec<ButtonCode>>>,
+    pub(crate) bound_key_combinations: Vec<(PlayerData<HashSet<ButtonCode>>, Vec<HashSet<ButtonCode>>)>,
     #[cfg(feature = "validation")]
     #[cfg_attr(feature = "serialize", serde(skip))]
     bound_axes: HashSet<GamepadAxisType>,
@@ -227,7 +227,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
 
         #[cfg(feature = "validation")]
         {
-            if crate::validation::validate(self, player_id, binding.clone()) {
+            if crate::validation::add_binding(self, player_id, binding.clone()).is_ok() {
             }
             else {
                 // todo: don't panic, just return a result
