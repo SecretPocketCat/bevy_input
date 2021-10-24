@@ -1,12 +1,10 @@
-use std::{
-    cmp::max,
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    hash::Hash,
-};
 use itertools::Itertools;
+use std::{collections::HashSet, fmt::Debug};
 
-use crate::{ActionMap, ActionMapInput, ButtonCode, action_map::{KeyActionBinding, PlayerData}, inputs_vec};
+use crate::{
+    action_map::{KeyActionBinding, PlayerData},
+    ActionMap, ActionMapInput, ButtonCode,
+};
 
 #[derive(Debug)]
 pub enum BindingError {
@@ -14,7 +12,11 @@ pub enum BindingError {
 }
 
 // todo: return Res<AddToMapOrSmt, BindingError>
-pub(crate) fn add_binding<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput, B: IntoIterator<Item = ButtonCode>>(
+pub(crate) fn add_binding<
+    TKeyAction: ActionMapInput,
+    TAxisAction: ActionMapInput,
+    B: IntoIterator<Item = ButtonCode>,
+>(
     map: &mut ActionMap<TKeyAction, TAxisAction>,
     player_id: Option<usize>,
     binding: B,
@@ -26,56 +28,60 @@ pub(crate) fn add_binding<TKeyAction: ActionMapInput, TAxisAction: ActionMapInpu
     if binding.len() != len {
         return Ok(());
     }
-    
-    let mut binding_key_combinations: Vec<HashSet<_>> = (1..=binding.len())
+
+    let binding_key_combinations: Vec<HashSet<_>> = (1..=binding.len())
         .into_iter()
         // todo: replace itertools:combinations by own fn to get rid of the dep?
-        .flat_map(|l| { 
-            binding.iter()
+        .flat_map(|l| {
+            binding
+                .iter()
                 .copied()
                 .combinations(l)
                 .map(|c| c.iter().copied().collect())
-        }).collect();
+        })
+        .collect();
 
     let conflict = map.bound_key_combinations.iter().find(|(key, val)| {
-        let stored_binding_len = key.value.len();
-        
-        if len == stored_binding_len {
-            bindings_eq(player_id, &binding, key.id, &key.value)
-        }
-        else if len < stored_binding_len {
-            // check binding against stored binding combinations
-            val.iter().any(|c| {
-                bindings_eq(player_id, &binding, key.id, c)
-            })
-        }
-        else {
-            // binding len > stored binding len
-            // check binding combinations against stored binding
-            binding_key_combinations.iter().any(|c| {
-                bindings_eq(player_id, c, key.id, &key.value)
-            })
+        match len.cmp(&key.value.len()) {
+            std::cmp::Ordering::Equal => {
+                bindings_eq(player_id, &binding, key.id, &key.value)
+            },
+            std::cmp::Ordering::Less => {
+                // check binding against stored binding combinations
+                val.iter()
+                    .any(|c| bindings_eq(player_id, &binding, key.id, c))
+            },
+            std::cmp::Ordering::Greater => {
+                binding_key_combinations
+                .iter()
+                .any(|c| bindings_eq(player_id, c, key.id, &key.value))
+            }
         }
     });
-    
+
     if let Some(conflict) = conflict {
         Err(BindingError::Conflict(conflict.0.clone()))
-    }
-    else {
+    } else {
         // todo: store the bindings...
         map.bound_key_combinations.push((
-                PlayerData {
+            PlayerData {
                 id: player_id,
-                value: binding
+                value: binding,
             },
-            binding_key_combinations));
+            binding_key_combinations,
+        ));
 
         Ok(())
     }
 }
 
 // todo: take hashsets directly? take IntoIterator?
-pub(crate) fn bindings_eq(player_id_1: Option<usize>, binding_1: &HashSet<ButtonCode>, player_id_2: Option<usize>, binding_2: &HashSet<ButtonCode>) -> bool {
+pub(crate) fn bindings_eq(
+    player_id_1: Option<usize>,
+    binding_1: &HashSet<ButtonCode>,
+    player_id_2: Option<usize>,
+    binding_2: &HashSet<ButtonCode>,
+) -> bool {
     if player_id_1 != player_id_2 {
         return false;
     }
@@ -89,10 +95,10 @@ pub(crate) fn bindings_eq(player_id_1: Option<usize>, binding_1: &HashSet<Button
 
 #[cfg(test)]
 mod tests {
-    use super::{add_binding, bindings_eq, inputs_vec};
+    use super::{add_binding, bindings_eq};
+    use crate::{ActionMap, ButtonCode, inputs_vec};
     use bevy::prelude::KeyCode;
     use test_case::test_case;
-    use crate::{ActionMap, ButtonCode};
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
     pub enum TestAction {}
@@ -110,13 +116,18 @@ mod tests {
     #[test_case(Some(1), inputs_vec![KeyCode::A], Some(2), inputs_vec![KeyCode::A] => false)]
     #[test_case(Some(1), inputs_vec![KeyCode::A, KeyCode::B], Some(1), inputs_vec![KeyCode::A, KeyCode::B] => true)]
     #[test_case(Some(1), inputs_vec![KeyCode::A, KeyCode::B], Some(1), inputs_vec![KeyCode::B, KeyCode::A] => true)]
-    fn bindings_equal(player_id_1: Option<usize>, binding_1: Vec<ButtonCode>, player_id_2: Option<usize>, binding_2: Vec<ButtonCode>) -> bool {
+    fn bindings_equal(
+        player_id_1: Option<usize>,
+        binding_1: Vec<ButtonCode>,
+        player_id_2: Option<usize>,
+        binding_2: Vec<ButtonCode>,
+    ) -> bool {
         bindings_eq(
-                player_id_1,
-                &binding_1.iter().copied().collect(),
-                player_id_2,
-                &binding_2.iter().copied().collect(),
-            )
+            player_id_1,
+            &binding_1.iter().copied().collect(),
+            player_id_2,
+            &binding_2.iter().copied().collect(),
+        )
     }
 
     #[test_case(None)]
@@ -131,7 +142,11 @@ mod tests {
     #[test_case(Some(1))]
     fn validate_combo(player_id: Option<usize>) {
         let mut map = ActionMap::<TestAction, TestAxis>::default();
-        let actual = add_binding(&mut map, player_id, inputs_vec![KeyCode::A, KeyCode::B, KeyCode::C]);
+        let actual = add_binding(
+            &mut map,
+            player_id,
+            inputs_vec![KeyCode::A, KeyCode::B, KeyCode::C],
+        );
         pretty_assertions::assert_eq!(true, actual.is_ok());
     }
 
@@ -139,7 +154,7 @@ mod tests {
     #[test_case(Some(1))]
     fn validate_combo_duped(player_id: Option<usize>) {
         let mut map = ActionMap::<TestAction, TestAxis>::default();
-        let actual = add_binding(&mut map, player_id,inputs_vec![KeyCode::A, KeyCode::A]);
+        let actual = add_binding(&mut map, player_id, inputs_vec![KeyCode::A, KeyCode::A]);
         pretty_assertions::assert_eq!(false, actual.is_err());
     }
 
@@ -157,7 +172,12 @@ mod tests {
     #[test_case(Some(1), inputs_vec![KeyCode::A, KeyCode::B, KeyCode::C], Some(1), inputs_vec![KeyCode::B, KeyCode::C, KeyCode::D] => true)]
     #[test_case(Some(1), inputs_vec![KeyCode::A], Some(1), inputs_vec![KeyCode::A, KeyCode::B, KeyCode::C] => false)]
     #[test_case(Some(1), inputs_vec![KeyCode::A, KeyCode::B], Some(1), inputs_vec![KeyCode::A, KeyCode::B, KeyCode::C] => false)]
-    fn validate_seq(player_id_1: Option<usize>, binding_1: Vec<ButtonCode>, player_id_2: Option<usize>, binding_2: Vec<ButtonCode>) -> bool {
+    fn validate_seq(
+        player_id_1: Option<usize>,
+        binding_1: Vec<ButtonCode>,
+        player_id_2: Option<usize>,
+        binding_2: Vec<ButtonCode>,
+    ) -> bool {
         let mut map = ActionMap::<TestAction, TestAxis>::default();
         add_binding(&mut map, player_id_1, binding_1);
         add_binding(&mut map, player_id_2, binding_2).is_ok()
