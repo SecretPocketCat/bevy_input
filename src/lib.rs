@@ -12,6 +12,7 @@ mod validation;
 pub use action_map::{ActionInput, ActionMap, ActionMapInput, AxisBinding, ButtonCode};
 pub use plugin::ActionInputPlugin;
 pub use macros::*;
+pub use validation::BindingError;
 
 #[cfg(feature = "multiplayer")]
 pub use action_map::{GamepadMap};

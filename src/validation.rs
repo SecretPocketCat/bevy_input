@@ -8,6 +8,7 @@ use itertools::Itertools;
 
 use crate::{ActionMap, ActionMapInput, ButtonCode, action_map::{KeyActionBinding, PlayerData}, inputs_vec};
 
+#[derive(Debug)]
 pub enum BindingError {
     Conflict(PlayerData<HashSet<ButtonCode>>),
 }

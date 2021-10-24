@@ -1,13 +1,8 @@
-use std::{
-    cmp::max,
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    hash::Hash,
-};
+use std::{cmp::max, collections::{HashMap, HashSet}, fmt::Debug, hash::Hash};
 use bevy::{input::{gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType}, ElementState, keyboard::KeyboardInput}, prelude::*};
 use itertools::Itertools;
 
-use crate::inputs_vec;
+use crate::{inputs_vec, validation::BindingError};
 
 const DEADZONE_PRECISION: f32 = 10000.;
 
@@ -162,11 +157,23 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> Default for Action
 #[cfg(not(feature = "multiplayer"))]
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyAction, TAxisAction>
 {
+    #[cfg(not(feature = "validation"))]
     pub fn bind_button_action<K: Into<TKeyAction>, B: Into<ButtonCode>>(&mut self, action: K, button: B) -> &mut Self {
         self.bind_button_action_internal(action, button, None)
     }
 
+    #[cfg(not(feature = "validation"))]
     pub fn bind_button_combination_action<K: Into<TKeyAction>, B: IntoIterator<Item = ButtonCode>>(&mut self, action: K, binding: B) -> &mut Self {
+        self.bind_button_combination_action_internal(action, binding, None)
+    }
+
+    #[cfg(feature = "validation")]
+    pub fn bind_button_action<K: Into<TKeyAction>, B: Into<ButtonCode>>(&mut self, action: K, button: B) -> Result<&mut Self, BindingError> {
+        self.bind_button_action_internal(action, button, None)
+    }
+
+    #[cfg(feature = "validation")]
+    pub fn bind_button_combination_action<K: Into<TKeyAction>, B: IntoIterator<Item = ButtonCode>>(&mut self, action: K, binding: B) -> Result<&mut Self, BindingError> {
         self.bind_button_combination_action_internal(action, binding, None)
     }
 
@@ -205,7 +212,8 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
     pub fn set_bindings(&mut self, map: Self) {
         for action in map.key_action_bindings {
             for b in action.1 {
-                self.bind_button_combination_action_internal(action.0.value, b, action.0.id);
+                self.bind_button_combination_action_internal(action.0.value, b, action.0.id)
+                    .expect("Bindings should be valid when set directly");
             }
         }
 
@@ -216,22 +224,19 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
         }
     }
 
-    fn bind_button_action_internal<K: Into<TKeyAction>, B: Into<ButtonCode>>(&mut self, action: K, button: B, player_id: Option<usize>) -> &mut Self {
+    fn bind_button_action_internal<K: Into<TKeyAction>, B: Into<ButtonCode>>(&mut self, action: K, button: B, player_id: Option<usize>) -> Result<&mut Self, BindingError> {
         self.bind_button_combination_action_internal(action, vec![button.into()], player_id)
     }
 
     // todo: bind should validate actions don't overlap & return result
-    fn bind_button_combination_action_internal<K: Into<TKeyAction>, B: IntoIterator<Item = ButtonCode>>(&mut self, action: K, binding: B, player_id: Option<usize>) -> &mut Self {
+    fn bind_button_combination_action_internal<K: Into<TKeyAction>, B: IntoIterator<Item = ButtonCode>>(&mut self, action: K, binding: B, player_id: Option<usize>) -> Result<&mut Self, BindingError> {
         let key = PlayerData { value: action.into(), id: player_id };
         let binding: KeyActionBinding = binding.into_iter().collect();
 
         #[cfg(feature = "validation")]
         {
-            if crate::validation::add_binding(self, player_id, binding.clone()).is_ok() {
-            }
-            else {
-                // todo: don't panic, just return a result
-                panic!("Oh no, a terrible thing has happened: {:?}!", binding);
+            if let Err(err) = crate::validation::add_binding(self, player_id, binding.clone()) {
+                return Err(err);
             }
         }
 
@@ -244,7 +249,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
             action.push(binding);
         }
 
-        self
+        Ok(self)
     }
 
     // todo: bind should validate actions don't overlap & return result?
