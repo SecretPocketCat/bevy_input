@@ -43,8 +43,8 @@ impl ButtonCode {
         Self::Mouse(mouse_button)
     }
 
-    fn player_data(&self, id: Option<usize>) -> PlayerData<Self> {
-        PlayerData::<Self> { value: *self, id }
+    fn player_data(self, id: Option<usize>) -> PlayerData<Self> {
+        PlayerData::<Self> { value: self, id }
     }
 }
 
@@ -85,10 +85,8 @@ pub enum ActionState {
 impl ActionState {
     pub fn duration(&self) -> f32 {
         match self {
-            ActionState::Pressed => 0.,
-            ActionState::Held(data) => data.duration,
-            ActionState::Released(data) => data.duration,
-            ActionState::Used => 0.,
+            ActionState::Pressed | ActionState::Used => 0.,
+            ActionState::Held(data) |  ActionState::Released(data) => data.duration,
         }
     }
 }
@@ -182,6 +180,9 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
         self.bind_button_combination_action_internal(action, binding, None)
     }
 
+    /// # Errors
+    ///
+    /// Will return an `Err` if there's a binding conflict
     #[cfg(feature = "validation")]
     pub fn bind_button_action<K: Into<TKeyAction>, B: Into<ButtonCode>>(
         &mut self,
@@ -191,6 +192,9 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
         self.bind_button_action_internal(action, button, None)
     }
 
+    /// # Errors
+    ///
+    /// Will return an `Err` if there's a binding conflict
     #[cfg(feature = "validation")]
     pub fn bind_button_combination_action<
         K: Into<TKeyAction>,
@@ -377,6 +381,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
                 }
             }
 
+            #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
             action.insert((axis_binding, (deadzone * DEADZONE_PRECISION) as u32));
         }
 
@@ -427,11 +432,11 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAc
     }
 
     pub fn held(&self, button: TKeyAction) -> bool {
-        self.is_button_action_in_state(button.into(), ActionState::Held(Default::default()))
+        self.is_button_action_in_state(button.into(), ActionState::Held(ActiveKeyData::default()))
     }
 
     pub fn just_released(&self, button: TKeyAction) -> bool {
-        self.is_button_action_in_state(button.into(), ActionState::Released(Default::default()))
+        self.is_button_action_in_state(button.into(), ActionState::Released(ActiveKeyData::default()))
     }
 
     pub fn used(&self, button: TKeyAction) -> bool {
@@ -555,7 +560,7 @@ pub(crate) fn handle_keyboard_button_events<
     kb_input: Res<Input<KeyCode>>,
     map: Res<ActionMap<TKeyAction, TAxisAction>>,
 ) {
-    for btn_data in map.bound_keys.iter() {
+    for btn_data in &map.bound_keys {
         if let PlayerData {
             value: ButtonCode::Kb(key),
             ..
@@ -576,7 +581,7 @@ pub(crate) fn handle_mouse_button_events<
     mouse_input: Res<Input<MouseButton>>,
     map: Res<ActionMap<TKeyAction, TAxisAction>>,
 ) {
-    for btn_data in map.bound_keys.iter() {
+    for btn_data in &map.bound_keys {
         if let PlayerData {
             value: ButtonCode::Mouse(button),
             ..
@@ -672,7 +677,7 @@ pub(crate) fn process_button_actions<
     map: Res<ActionMap<TKeyAction, TAxisAction>>,
     time: Res<Time>,
 ) {
-    'actions: for (action_data, bindings) in map.key_action_bindings.iter() {
+    'actions: for (action_data, bindings) in &map.key_action_bindings {
         let current_state = input.get_action_state(action_data);
         let current_duration = current_state.unwrap_or(&ActionState::Used).duration();
         match current_state {
@@ -694,9 +699,9 @@ pub(crate) fn process_button_actions<
                                 }
                                 _ => continue 'bindings,
                             }
-                        } else {
-                            continue 'bindings;
-                        }
+                        } 
+
+                        continue 'bindings;
                     }
 
                     // at least one 1 key was just pressed, the rest can be held
@@ -723,9 +728,9 @@ pub(crate) fn process_button_actions<
                                 }
                                 _ => continue 'held_bindings,
                             }
-                        } else {
-                            continue 'held_bindings;
                         }
+                            
+                        continue 'held_bindings;
                     }
 
                     input.button_actions.insert(
