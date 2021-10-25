@@ -5,20 +5,21 @@ authors = ["SecretPocketCat <jiridexterhanc@gmail.com>"]
 edition = "2021"
 
 [features]
-default = ["validation"]
+default = ["validate", "serialize", "multiplayer"]
 multiplayer = []
-serialize = ["serde", "bevy/serialize", "itertools"]
-validation = ["itertools"]
+serialize = ["serde", "bevy/serialize", "ron", "anyhow"]
+validate = ["itertools"]
 
 [dependencies]
 bevy = { git = "https://github.com/bevyengine/bevy", rev = "07ed1d053e7946a116ce3eef273fc93dd246f49d", default-features = false, features = ["bevy_gilrs"] }
 serde = { version = "1.0.130", features = ["derive"], optional = true }
+ron = { version = "0.7.0", optional = true }
+anyhow = { version = "*", optional = true }
 itertools = { version = "0.9.0", optional = true }
 
 [dev-dependencies]
 bevy = { git = "https://github.com/bevyengine/bevy", rev = "07ed1d053e7946a116ce3eef273fc93dd246f49d" }
 bevy_extensions = { git = "https://github.com/SecretPocketCat/bevy_extensions" }
-ron = "0.7.0"
 pretty_assertions = "1.0.0"
 test-case = "1.2.0"
 

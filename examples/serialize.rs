@@ -20,31 +20,19 @@ struct Player(usize);
 
 fn main() {
     App::new()
-        .add_asset(WindowDescriptor {
-            width: 800.,
-            height: 800.,
-            ..Default::default()
-        })
         .add_plugins(DefaultPlugins)
-        .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::new())
+        .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::new("bindings\\example_actions.bindings".into()))
         .add_startup_system(setup)
         .add_system(debug_player_actions)
         .run();
 }
 
 fn setup(
-    mut map: ResMut<ActionMap<InputAction, InputAxis>>,
     mut gamepad_map: ResMut<GamepadMap>,
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    // todo: load this properly using the asset server?
-    let bindings_ron =
-        std::fs::read_to_string("assets/bindings/example_action_bindings.ron").unwrap();
-    let bindings = ron::de::from_str::<ActionMap<InputAction, InputAxis>>(&bindings_ron).unwrap();
-    map.set_bindings(bindings);
-
     // map gamepads to players 1 & 2
     for id in 1..=2 {
         gamepad_map.map_gamepad(id - 1, id);

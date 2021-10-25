@@ -1,227 +1,87 @@
-// todo: action bindings loader
+use std::marker::PhantomData;
+use bevy::{asset::{AssetLoader, BoxedFuture, LoadContext, LoadedAsset}, prelude::{AssetEvent, AssetServer, Assets, Commands, EventReader, Res, ResMut}, tasks::AsyncComputeTaskPool};
+use serde::Deserialize;
+use crate::{ActionMap, ActionMapInput, action_map::SerializedActionMap};
 
-pub struct LdtkLoader;
+#[derive(Default)]
+pub(crate) struct BindingsLoader<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput>(
+    PhantomData<TKeyAction>,
+    PhantomData<TAxisAction>,
+);
 
-impl AssetLoader for LdtkLoader {
-    fn load<'a>(
+impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> BindingsLoader<TKeyAction, TAxisAction> {
+    pub fn new() -> Self {
+        Self(PhantomData, PhantomData)
+    }
+}
+
+impl<TKeyAction, TAxisAction> AssetLoader for BindingsLoader<TKeyAction, TAxisAction>
+where
+    for<'de> TKeyAction: ActionMapInput + Deserialize<'de> + Send + Sync + 'static,
+    for<'de> TAxisAction: ActionMapInput + Deserialize<'de> + Send + Sync + 'static,
+{
+    fn load<'a>
+     (
         &'a self,
         bytes: &'a [u8],
         load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
         Box::pin(async move {
-            // get ldtk project
-            let project: ldtk_rust::Project = serde_json::from_slice(bytes)?;
-
-            // load tilesets
-            let dependencies: Vec<(i64, AssetPath)> = project
-                .defs
-                .tilesets
-                .iter()
-                .map(|tileset| {
-                    (
-                        tileset.uid,
-                        load_context
-                            .path()
-                            .parent()
-                            .unwrap()
-                            .join(tileset.rel_path.clone())
-                            .into(),
-                    )
-                })
-                .collect();
-
-            let loaded_asset = LoadedAsset::new(LdtkMap {
-                project,
-                tilesets: dependencies
-                    .iter()
-                    .map(|dep| (dep.0, load_context.get_handle(dep.1.clone())))
-                    .collect(),
-            });
-
-            load_context.set_default_asset(
-                loaded_asset.with_dependencies(dependencies.iter().map(|x| x.1.clone()).collect()),
-            );
-            
+            let map = ron::de::from_bytes::<SerializedActionMap<TKeyAction, TAxisAction>>(bytes)?;
+            load_context.set_labeled_asset("bindings", LoadedAsset::new(map));
+            println!("bindings loaded");
             Ok(())
         })
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["ldtk"];
+        static EXTENSIONS: &[&str] = &["bindings"];
         EXTENSIONS
     }
 }
 
-pub fn process_loaded_tile_maps(
-    mut commands: Commands,
-    mut map_events: EventReader<AssetEvent<LdtkMap>>,
-    maps: Res<Assets<LdtkMap>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut query: Query<(Entity, &Handle<LdtkMap>, &LdtkMapConfig, &mut Map)>,
-    new_maps: Query<&Handle<LdtkMap>, Added<Handle<LdtkMap>>>,
-    layer_query: Query<&Layer>,
-    chunk_query: Query<&Chunk>,
+pub(crate) fn process_binding_assets<TKeyAction: ActionMapInput + 'static, TAxisAction: ActionMapInput + 'static>(
+    mut map_events: EventReader<AssetEvent<SerializedActionMap<TKeyAction, TAxisAction>>>,
+    mut map_assets: ResMut<Assets<SerializedActionMap<TKeyAction, TAxisAction>>>,
+    mut map: ResMut<ActionMap<TKeyAction, TAxisAction>>,
+    asset_server: Res<AssetServer>,
 ) {
-    let mut changed_maps = Vec::<Handle<LdtkMap>>::default();
     for event in map_events.iter() {
         match event {
             AssetEvent::Created { handle } => {
-                log::info!("Map added!");
-                changed_maps.push(handle.clone());
+                println!("bindings asset created");
+                if let Some(serialized_map) = map_assets.get_mut(handle) {
+                    println!("bindings set: {:?}", serialized_map);
+                    let serialized_map = serialized_map.clone();
+                    map.set_bindings(serialized_map.key_action_bindings, serialized_map.axis_action_bindings);
+                }
             }
-            AssetEvent::Modified { handle } => {
-                log::info!("Map changed!");
-                changed_maps.push(handle.clone());
-            }
-            AssetEvent::Removed { handle } => {
-                log::info!("Map removed!");
-                // if mesh was modified and removed in the same update, ignore the modification
-                // events are ordered so future modification events are ok
-                changed_maps = changed_maps
-                    .into_iter()
-                    .filter(|changed_handle| changed_handle == handle)
-                    .collect();
+            AssetEvent::Removed { .. } => {
+                println!("bindings rmvd");
+                // map.clear_bindings();
+            },
+            _ => {
+                println!("bindings updated");
             }
         }
     }
+}
 
-    // If we have new map entities add them to the changed_maps list.
-    for new_map_handle in new_maps.iter() {
-        changed_maps.push(new_map_handle.clone());
-    }
 
-    for changed_map in changed_maps.iter() {
-        for (_, map_handle, map_config, mut map) in query.iter_mut() {
-            // only deal with currently changed map
-            if map_handle != changed_map {
-                continue;
-            }
-            if let Some(ldtk_map) = maps.get(map_handle) {
-                // Despawn all tiles/chunks/layers.
-                for (layer_id, layer_entity) in map.get_layers() {
-                    if let Ok(layer) = layer_query.get(layer_entity) {
-                        for x in 0..layer.get_layer_size_in_tiles().0 {
-                            for y in 0..layer.get_layer_size_in_tiles().1 {
-                                let tile_pos = TilePos(x, y);
-                                let chunk_pos = ChunkPos(
-                                    tile_pos.0 / layer.settings.chunk_size.0,
-                                    tile_pos.1 / layer.settings.chunk_size.1,
-                                );
-                                if let Some(chunk_entity) = layer.get_chunk(chunk_pos) {
-                                    if let Ok(chunk) = chunk_query.get(chunk_entity) {
-                                        let chunk_tile_pos = chunk.to_chunk_pos(tile_pos);
-                                        if let Some(tile) = chunk.get_tile_entity(chunk_tile_pos) {
-                                            commands.entity(tile).despawn_recursive();
-                                        }
-                                    }
 
-                                    commands.entity(chunk_entity).despawn_recursive();
-                                }
-                            }
-                        }
-                    }
-                    map.remove_layer(&mut commands, layer_id);
-                }
 
-                // Pull out tilesets.
-                let mut tilesets = HashMap::new();
-                ldtk_map.project.defs.tilesets.iter().for_each(|tileset| {
-                    tilesets.insert(
-                        tileset.uid,
-                        (
-                            ldtk_map.tilesets.get(&tileset.uid).unwrap().clone(),
-                            tileset.clone(),
-                        ),
-                    );
-                });
 
-                let default_grid_size = ldtk_map.project.default_grid_size;
-                let level = &ldtk_map.project.levels[map_config.selected_level];
+fn spawn_tasks<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput>(
+    mut commands: Commands,
+    thread_pool: Res<AsyncComputeTaskPool>,
+)
+where
+    for<'de> TKeyAction: ActionMapInput + Deserialize<'de> + Send + Sync,
+    for<'de> TAxisAction: ActionMapInput + Deserialize<'de> + Send + Sync,
+{
+    let task = thread_pool.spawn(async move {
+        let map = ron::de::from_bytes::<SerializedActionMap<TKeyAction, TAxisAction>>(bytes)?
+    });
 
-                let map_tile_count_x = (level.px_wid / default_grid_size) as u32;
-                let map_tile_count_y = (level.px_hei / default_grid_size) as u32;
-
-                let map_size = MapSize(
-                    (map_tile_count_x as f32 / 32.0).ceil() as u32,
-                    (map_tile_count_y as f32 / 32.0).ceil() as u32,
-                );
-
-                for (layer_id, layer) in level
-                    .layer_instances
-                    .as_ref()
-                    .unwrap()
-                    .iter()
-                    .rev()
-                    .enumerate()
-                {
-                    let (texture, tileset) = if let Some(uid) = layer.tileset_def_uid {
-                        tilesets.get(&uid).unwrap().clone()
-                    } else {
-                        continue;
-                    };
-
-                    let mut settings = LayerSettings::new(
-                        map_size,
-                        ChunkSize(32, 32),
-                        TileSize(tileset.tile_grid_size as f32, tileset.tile_grid_size as f32),
-                        TextureSize(tileset.px_wid as f32, tileset.px_hei as f32),
-                    );
-                    settings.set_layer_id(layer_id as u16);
-
-                    let (mut layer_builder, layer_entity) = LayerBuilder::<TileBundle>::new(
-                        &mut commands,
-                        settings,
-                        map.id,
-                        layer_id as u16,
-                        None,
-                    );
-
-                    let tileset_width_in_tiles = (tileset.px_wid / default_grid_size) as u32;
-
-                    for tile in layer.grid_tiles.iter() {
-                        let tileset_x = (tile.src[0] / default_grid_size) as u32;
-                        let tileset_y = (tile.src[1] / default_grid_size) as u32;
-
-                        let mut pos = TilePos(
-                            (tile.px[0] / default_grid_size) as u32,
-                            (tile.px[1] / default_grid_size) as u32,
-                        );
-
-                        pos.1 = map_tile_count_y - pos.1 - 1;
-
-                        layer_builder
-                            .set_tile(
-                                pos,
-                                Tile {
-                                    texture_index: (tileset_y * tileset_width_in_tiles + tileset_x)
-                                        as u16,
-                                    ..Default::default()
-                                }
-                                .into(),
-                            )
-                            .unwrap();
-                    }
-
-                    let material_handle = materials.add(ColorMaterial::texture(texture));
-                    let layer_bundle =
-                        layer_builder.build(&mut commands, &mut meshes, material_handle);
-                    let mut layer = layer_bundle.layer;
-                    let mut transform = Transform::from_xyz(
-                        0.0,
-                        -level.px_hei as f32,
-                        layer_bundle.transform.translation.z,
-                    );
-                    layer.settings.layer_id = layer.settings.layer_id;
-                    transform.translation.z = layer.settings.layer_id as f32;
-                    map.add_layer(&mut commands, layer.settings.layer_id, layer_entity);
-                    commands.entity(layer_entity).insert_bundle(LayerBundle {
-                        layer,
-                        transform,
-                        ..layer_bundle
-                    });
-                }
-            }
-        }
-    }
+    commands.spawn().insert(task);
 }

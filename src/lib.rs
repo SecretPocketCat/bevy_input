@@ -15,13 +15,15 @@
 mod action_map;
 mod macros;
 mod plugin;
-#[cfg(feature = "validation")]
+#[cfg(feature = "validate")]
 mod validation;
+#[cfg(feature = "serialize")]
+mod bindings_loader;
 
 pub use action_map::{ActionInput, ActionMap, ActionMapInput, AxisBinding, ButtonCode};
 pub use macros::*;
 pub use plugin::ActionInputPlugin;
-#[cfg(feature = "validation")]
+#[cfg(feature = "validate")]
 pub use validation::BindingError;
 #[cfg(feature = "multiplayer")]
 pub use action_map::GamepadMap;

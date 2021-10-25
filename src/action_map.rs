@@ -1,8 +1,5 @@
 use crate::validation::BindingError;
-use bevy::{
-    input::gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType},
-    prelude::*,
-};
+use bevy::{input::gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType}, prelude::*, reflect::{TypeUuid, Uuid}};
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
@@ -14,6 +11,9 @@ const DEADZONE_PRECISION: f32 = 10000.;
 pub trait ActionMapInput = Debug + Hash + Eq + Clone + Copy + Send + Sync;
 
 pub(crate) type KeyActionBinding = HashSet<ButtonCode>;
+
+pub(crate) type KeyBindings<TKeyAction> = HashMap<PlayerData<TKeyAction>, Vec<KeyActionBinding>>;
+pub(crate) type AxisBindings<TAxisAction> = HashMap<PlayerData<TAxisAction>, HashSet<(AxisBinding, u32)>>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -127,20 +127,29 @@ impl<T> From<T> for PlayerData<T> {
     }
 }
 
-#[derive(Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
 pub struct ActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
-    key_action_bindings: HashMap<PlayerData<TKeyAction>, Vec<KeyActionBinding>>,
-    axis_action_bindings: HashMap<PlayerData<TAxisAction>, HashSet<(AxisBinding, u32)>>,
-    #[cfg_attr(feature = "serialize", serde(skip))]
+    key_action_bindings: KeyBindings<TKeyAction>,
+    axis_action_bindings: AxisBindings<TAxisAction>,
     bound_keys: HashSet<PlayerData<ButtonCode>>,
-    #[cfg(feature = "validation")]
-    #[cfg_attr(feature = "serialize", serde(skip))]
+    bound_axes: HashSet<GamepadAxisType>,
+    #[cfg(feature = "validate")]
     pub(crate) bound_key_combinations:
         Vec<(PlayerData<HashSet<ButtonCode>>, Vec<HashSet<ButtonCode>>)>,
-    #[cfg(feature = "validation")]
-    #[cfg_attr(feature = "serialize", serde(skip))]
-    bound_axes: HashSet<GamepadAxisType>,
+}
+
+#[cfg(feature = "serialize")]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SerializedActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
+    pub(crate) key_action_bindings: KeyBindings<TKeyAction>,
+    pub(crate) axis_action_bindings: AxisBindings<TAxisAction>,
+}
+
+#[cfg(feature = "serialize")]
+impl <TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> TypeUuid
+    for SerializedActionMap<TKeyAction, TAxisAction>
+{
+    const TYPE_UUID: bevy::reflect::Uuid = Uuid::from_u128(139351808413923814412416017277321670424);
 }
 
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> Default
@@ -159,7 +168,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> Default
 
 #[cfg(not(feature = "multiplayer"))]
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyAction, TAxisAction> {
-    #[cfg(not(feature = "validation"))]
+    #[cfg(not(feature = "validate"))]
     pub fn bind_button_action<K: Into<TKeyAction>, B: Into<ButtonCode>>(
         &mut self,
         action: K,
@@ -168,7 +177,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
         self.bind_button_action_internal(action, button, None)
     }
 
-    #[cfg(not(feature = "validation"))]
+    #[cfg(not(feature = "validate"))]
     pub fn bind_button_combination_action<
         K: Into<TKeyAction>,
         B: IntoIterator<Item = ButtonCode>,
@@ -183,7 +192,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
     /// # Errors
     ///
     /// Will return an `Err` if there's a binding conflict
-    #[cfg(feature = "validation")]
+    #[cfg(feature = "validate")]
     pub fn bind_button_action<K: Into<TKeyAction>, B: Into<ButtonCode>>(
         &mut self,
         action: K,
@@ -195,7 +204,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
     /// # Errors
     ///
     /// Will return an `Err` if there's a binding conflict
-    #[cfg(feature = "validation")]
+    #[cfg(feature = "validate")]
     pub fn bind_button_combination_action<
         K: Into<TKeyAction>,
         B: IntoIterator<Item = ButtonCode>,
@@ -227,6 +236,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
 
 #[cfg(feature = "multiplayer")]
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyAction, TAxisAction> {
+    #[cfg(not(feature = "validate"))]
     pub fn bind_button_action<K: Into<TKeyAction>, B: Into<ButtonCode>>(
         &mut self,
         player_id: usize,
@@ -236,6 +246,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
         self.bind_button_action_internal(action, button, Some(player_id))
     }
 
+    #[cfg(not(feature = "validate"))]
     pub fn bind_button_combination_action<
         K: Into<TKeyAction>,
         B: IntoIterator<Item = ButtonCode>,
@@ -245,6 +256,29 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
         action: K,
         binding: B,
     ) -> &mut Self {
+        self.bind_button_combination_action_internal(action, binding, Some(player_id))
+    }
+
+    #[cfg(feature = "validate")]
+    pub fn bind_button_action<K: Into<TKeyAction>, B: Into<ButtonCode>>(
+        &mut self,
+        player_id: usize,
+        action: K,
+        button: B,
+    ) -> Result<&mut Self, BindingError> {
+        self.bind_button_action_internal(action, button, Some(player_id))
+    }
+
+    #[cfg(feature = "validate")]
+    pub fn bind_button_combination_action<
+        K: Into<TKeyAction>,
+        B: IntoIterator<Item = ButtonCode>,
+    >(
+        &mut self,
+        player_id: usize,
+        action: K,
+        binding: B,
+    ) -> Result<&mut Self, BindingError> {
         self.bind_button_combination_action_internal(action, binding, Some(player_id))
     }
 
@@ -269,16 +303,17 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
 }
 
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyAction, TAxisAction> {
-    // todo: actually a load from path/assetpath fn that handles the loading?
-    pub fn set_bindings(&mut self, map: Self) {
-        for action in map.key_action_bindings {
+    pub fn set_bindings(&mut self, key_action_bindings: KeyBindings<TKeyAction>, axis_action_bindings: AxisBindings<TAxisAction>,) {
+        self.clear_bindings();
+
+        for action in key_action_bindings {
             for b in action.1 {
                 self.bind_button_combination_action_internal(action.0.value, b, action.0.id)
                     .expect("Bindings should be valid when set directly");
             }
         }
 
-        for action in map.axis_action_bindings {
+        for action in axis_action_bindings {
             for b in action.1 {
                 self.bind_axis_with_deadzone_internal(
                     action.0.value,
@@ -287,6 +322,22 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
                     action.0.id,
                 );
             }
+        }
+
+        println!("set bindings");
+    }
+
+    pub fn clear_bindings(&mut self) {
+        println!("clearing bindings");
+
+        self.key_action_bindings = Default::default();
+        self.axis_action_bindings = Default::default();
+        self.bound_keys = Default::default();
+        self.bound_axes = Default::default();
+
+        #[cfg(feature = "validate")]
+        {
+            self.bound_key_combinations = Default::default();
         }
     }
 
@@ -315,7 +366,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
         };
         let binding: KeyActionBinding = binding.into_iter().collect();
 
-        #[cfg(feature = "validation")]
+        #[cfg(feature = "validate")]
         {
             if let Err(err) = crate::validation::add_binding(self, player_id, binding.clone()) {
                 return Err(err);
@@ -633,7 +684,7 @@ pub(crate) fn handle_gamepad_events<
                     }
                 }
             }
-            GamepadEvent(_gamepad, GamepadEventType::AxisChanged(axis_type, strength)) => {
+            GamepadEvent(gamepad, GamepadEventType::AxisChanged(axis_type, strength)) => {
                 if map.bound_axes.get(axis_type).is_some() {
                     #[cfg(feature = "multiplayer")]
                     {

@@ -11,7 +11,6 @@ pub enum BindingError {
     Conflict(PlayerData<HashSet<ButtonCode>>),
 }
 
-// todo: return Res<AddToMapOrSmt, BindingError>
 pub(crate) fn add_binding<
     TKeyAction: ActionMapInput,
     TAxisAction: ActionMapInput,

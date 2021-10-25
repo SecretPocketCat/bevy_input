@@ -2,14 +2,16 @@
 #![feature(if_let_guard)]
 
 use bevy::prelude::*;
+use bevy_extensions::panic_on_error;
 use bevy_input::*;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 enum InputAction {
     Dodge,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 enum InputAxis {
     Horizontal,
     Vertical,
@@ -22,7 +24,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::new())
-        .add_startup_system(setup)
+        .add_startup_system(setup.chain(panic_on_error))
         .add_system(debug_player_actions)
         .run();
 }
@@ -33,10 +35,10 @@ fn setup(
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
-) {
+) -> Result<(), BindingError> {
     // gamepads
     for id in 1..=2 {
-        map.bind_button_action(id, InputAction::Dodge, GamepadButtonType::South)
+        map.bind_button_action(id, InputAction::Dodge, GamepadButtonType::South)?
             .bind_axis(
                 id,
                 InputAxis::Horizontal,
@@ -62,7 +64,7 @@ fn setup(
     }
 
     // kb
-    map.bind_button_action(3, InputAction::Dodge, MouseButton::Left)
+    map.bind_button_action(3, InputAction::Dodge, MouseButton::Left)?
         .bind_axis(
             3,
             InputAxis::Horizontal,
@@ -73,7 +75,7 @@ fn setup(
             InputAxis::Vertical,
             AxisBinding::Buttons(KeyCode::Down.into(), KeyCode::Up.into()),
         )
-        .bind_button_action(4, InputAction::Dodge, KeyCode::Space)
+        .bind_button_action(4, InputAction::Dodge, KeyCode::Space)?
         .bind_axis(
             4,
             InputAxis::Horizontal,
@@ -137,6 +139,8 @@ fn setup(
                     .insert(Player(id));
             }
         });
+
+    Ok(())
 }
 
 fn debug_player_actions(

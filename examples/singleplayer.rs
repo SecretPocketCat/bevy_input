@@ -2,14 +2,15 @@ use bevy::prelude::*;
 use bevy_extensions::panic_on_error;
 use bevy_input::*;
 use std::fmt::Debug;
+use serde::Deserialize;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 enum InputAction {
     Jump,
     Shoot,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 enum InputAxis {
     Horizontal,
 }
