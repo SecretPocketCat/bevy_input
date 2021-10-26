@@ -1,8 +1,6 @@
 use bevy::prelude::*;
 use bevy_input::*;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 enum InputAction {
@@ -21,7 +19,7 @@ struct Player(usize);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::new("bindings\\example_actions.bindings".into()))
+        .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::new("bindings\\example_actions.bindings"))
         .add_startup_system(setup)
         .add_system(debug_player_actions)
         .run();

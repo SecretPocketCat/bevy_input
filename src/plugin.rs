@@ -5,7 +5,7 @@ use bevy::{input::InputSystem, prelude::*};
 use crate::{action_map::{
     handle_gamepad_events, handle_keyboard_button_events, handle_mouse_button_events,
     process_axis_actions, process_button_actions, ActionInput, ActionMap, ActionMapInput,
-}, bindings_loader::process_binding_assets};
+}, bindings_loader::{MapIoEvent, MapPath, load_map, process_binding_assets, process_map_event, setup_loader}};
 
 pub struct ActionInputPlugin<'a, TKeyAction, TAxisAction> {
     _key_t: std::marker::PhantomData<&'a TKeyAction>,
@@ -24,11 +24,11 @@ impl<'a, TKeyAction, TAxisAction> ActionInputPlugin<'a, TKeyAction, TAxisAction>
     }
 
     #[cfg(feature = "serialize")]
-    pub fn new(path: String) -> Self {
+    pub fn new(path: &'a str) -> Self {
         Self{ 
             _key_t: std::marker::PhantomData,
             _axis_t: std::marker::PhantomData,
-            path,
+            path: format!("assets\\{}", path),
         }
     }
 }
@@ -79,9 +79,11 @@ where
         #[cfg(feature = "serialize")]
         {
             app
-                .add_asset::<crate::action_map::SerializedActionMap<TKeyAction, TAxisAction>>()
-                .add_asset_loader(crate::bindings_loader::BindingsLoader::<TKeyAction, TAxisAction>::new())
-                .add_system(process_binding_assets::<TKeyAction, TAxisAction>);
+                .insert_resource(MapPath(self.path.to_owned()))
+                .add_event::<MapIoEvent>()
+                .add_startup_system(setup_loader)
+                .add_system(process_map_event::<TKeyAction, TAxisAction>)
+                .add_system(load_map::<TKeyAction, TAxisAction>);
         }
     }
 }
