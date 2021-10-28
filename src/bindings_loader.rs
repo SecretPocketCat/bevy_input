@@ -1,7 +1,7 @@
-use std::{marker::PhantomData};
-use bevy::{asset::{AssetLoader, BoxedFuture, LoadContext, LoadedAsset}, prelude::{AssetEvent, AssetServer, Assets, Commands, Entity, EventReader, EventWriter, Query, Res, ResMut}, tasks::{AsyncComputeTaskPool, Task}};
-use serde::Deserialize;
-use crate::{ActionMap, ActionMapInput, action_map::SerializedActionMap};
+use bevy::{ prelude::*, tasks::{AsyncComputeTaskPool, Task}};
+use ron::ser::PrettyConfig;
+use serde::{Deserialize, Serialize};
+use crate::{ActionMap, ActionMapInput};
 use futures_lite::future;
 
 pub enum MapIoEvent {
@@ -9,43 +9,58 @@ pub enum MapIoEvent {
     Save
 }
 
-pub struct MapPath(pub(crate) String);
+pub struct ActionMapPath(pub(crate) String);
+
+pub(crate) struct ActionMapLoad<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput>(pub(crate) Option<Task<anyhow::Result<ActionMap<TKeyAction, TAxisAction>>>>);
+
+pub(crate) struct ActionMapSave(pub(crate) Option<Task<anyhow::Result<()>>>);
 
 pub(crate) fn setup_loader(mut events: EventWriter<MapIoEvent>) {
     events.send(MapIoEvent::Load);
 }
 
 pub(crate) fn process_map_event<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput>(
-    mut commands: Commands,
-    thread_pool: Res<AsyncComputeTaskPool>,
     mut events: EventReader<MapIoEvent>,
-    path: Res<MapPath>,
+    mut load: ResMut<ActionMapLoad<TKeyAction, TAxisAction>>,
+    mut save: ResMut<ActionMapSave>,
+    thread_pool: Res<AsyncComputeTaskPool>,
+    path: Res<ActionMapPath>,
+    map: Res<ActionMap<TKeyAction, TAxisAction>>,
 )
 where
-    for<'de> TKeyAction: ActionMapInput + Deserialize<'de> + 'static,
-    for<'de> TAxisAction: ActionMapInput + Deserialize<'de> + 'static,
+    for<'de> TKeyAction: ActionMapInput + Serialize + Deserialize<'de> + 'static,
+    for<'de> TAxisAction: ActionMapInput + Serialize + Deserialize<'de> + 'static,
 {
+    // loading or saving already
+    if load.0.is_some() || save.0.is_some() {
+        return;
+    }
+
     for ev in events.iter() {
         match ev {
             MapIoEvent::Load => {
                 let path = path.0.clone();
-                let task = thread_pool.spawn(async move {
-                    // todo: error handling
-                    let bytes = std::fs::read(path).unwrap();
-                    ron::de::from_bytes::<SerializedActionMap<TKeyAction, TAxisAction>>(&bytes).unwrap()
+                let task: Task<anyhow::Result<_>> = thread_pool.spawn(async move {
+                    // todo: async file read
+                    let bytes = std::fs::read(path)?;
+                    let map = ron::de::from_bytes::<ActionMap<TKeyAction, TAxisAction>>(&bytes)?;
+                    Ok(map)
                 });
             
-                commands.spawn().insert(task);
+                load.0 = Some(task);
                 return;
             },
             MapIoEvent::Save => {
-                // todo: save task
-                // let task = thread_pool.spawn(async move {
-                //     let bytes = std::fs::read("").unwrap();
-                //     ron::de::from_bytes::<SerializedActionMap<TKeyAction, TAxisAction>>(&bytes).unwrap()
-                // });
+                let map = map.clone();
+                let path = path.0.clone();
+                let task: Task<Result<_, anyhow::Error>> = thread_pool.spawn(async move {
+                    let map_str = ron::ser::to_string_pretty(&map, PrettyConfig::default())?;
+                    // todo: async file write
+                    std::fs::write(path, map_str)?;
+                    Ok(())
+                });
             
-                // commands.spawn().insert(task);
+                save.0 = Some(task);
                 return;
             },
         }
@@ -53,18 +68,34 @@ where
 }
 
 pub(crate) fn load_map<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput>(
-    mut commands: Commands,
-    mut load_q: Query<(Entity, &mut Task<SerializedActionMap<TKeyAction, TAxisAction>>)>,
     mut map: ResMut<ActionMap<TKeyAction, TAxisAction>>,
-)
+    mut load: ResMut<ActionMapLoad<TKeyAction, TAxisAction>>,
+) -> anyhow::Result<()>
 where
-    for<'de> TKeyAction: ActionMapInput + Deserialize<'de> + 'static,
-    for<'de> TAxisAction: ActionMapInput + Deserialize<'de> + 'static
+    for<'de> TKeyAction: ActionMapInput + 'static,
+    for<'de> TAxisAction: ActionMapInput + 'static
 {
-    for (entity, mut task) in load_q.iter_mut() {
-        if let Some(serialized_map) = future::block_on(future::poll_once(&mut *task)) {
+    if let Some(ref mut task) = load.0 {
+        if let Some(serialized_map_res) = future::block_on(future::poll_once(&mut *task)) {
+            let serialized_map = serialized_map_res?;
             map.set_bindings(serialized_map.key_action_bindings,  serialized_map. axis_action_bindings);
-            commands.entity(entity).remove::<Task<SerializedActionMap<TKeyAction, TAxisAction>>>();
+            load.0 = None;
         }
     }
+
+    Ok(())
+}
+
+pub(crate) fn save_map(
+    mut save: ResMut<ActionMapSave>,
+) -> anyhow::Result<()>
+{
+    if let Some(ref mut task) = save.0 {
+        if let Some(res) = future::block_on(future::poll_once(&mut *task)) {
+            res?;
+            save.0 = None;
+        }
+    }
+
+    Ok(())
 }

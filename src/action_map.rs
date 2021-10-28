@@ -128,26 +128,23 @@ impl<T> From<T> for PlayerData<T> {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
-    key_action_bindings: KeyBindings<TKeyAction>,
-    axis_action_bindings: AxisBindings<TAxisAction>,
+    pub(crate) key_action_bindings: KeyBindings<TKeyAction>,
+    pub(crate) axis_action_bindings: AxisBindings<TAxisAction>,
+    #[cfg_attr(feature = "serialize", serde(skip))]
     bound_keys: HashSet<PlayerData<ButtonCode>>,
+    #[cfg_attr(feature = "serialize", serde(skip))]
     bound_axes: HashSet<GamepadAxisType>,
     #[cfg(feature = "validate")]
+    #[cfg_attr(feature = "serialize", serde(skip))]
     pub(crate) bound_key_combinations:
         Vec<(PlayerData<HashSet<ButtonCode>>, Vec<HashSet<ButtonCode>>)>,
 }
 
 #[cfg(feature = "serialize")]
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct SerializedActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
-    pub(crate) key_action_bindings: KeyBindings<TKeyAction>,
-    pub(crate) axis_action_bindings: AxisBindings<TAxisAction>,
-}
-
-#[cfg(feature = "serialize")]
 impl <TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> TypeUuid
-    for SerializedActionMap<TKeyAction, TAxisAction>
+    for ActionMap<TKeyAction, TAxisAction>
 {
     const TYPE_UUID: bevy::reflect::Uuid = Uuid::from_u128(139351808413923814412416017277321670424);
 }
@@ -323,13 +320,9 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
                 );
             }
         }
-
-        println!("set bindings");
     }
 
     pub fn clear_bindings(&mut self) {
-        println!("clearing bindings");
-
         self.key_action_bindings = Default::default();
         self.axis_action_bindings = Default::default();
         self.bound_keys = Default::default();

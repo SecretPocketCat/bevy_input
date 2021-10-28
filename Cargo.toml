@@ -7,7 +7,7 @@ edition = "2021"
 [features]
 default = ["validate", "serialize", "multiplayer"]
 multiplayer = []
-serialize = ["serde", "bevy/serialize", "ron", "anyhow", "futures-lite"]
+serialize = ["serde", "bevy/serialize", "ron", "anyhow", "futures-lite", "bevy_extensions"]
 validate = ["itertools"]
 
 [dependencies]
@@ -17,10 +17,10 @@ ron = { version = "0.7.0", optional = true }
 anyhow = { version = "*", optional = true }
 itertools = { version = "0.10.1", optional = true }
 futures-lite = { version = "*", optional = true }
+bevy_extensions = { git = "https://github.com/SecretPocketCat/bevy_extensions", optional = true }
 
 [dev-dependencies]
 bevy = { git = "https://github.com/bevyengine/bevy", rev = "07ed1d053e7946a116ce3eef273fc93dd246f49d" }
-bevy_extensions = { git = "https://github.com/SecretPocketCat/bevy_extensions" }
 pretty_assertions = "1.0.0"
 test-case = "1.2.0"
 

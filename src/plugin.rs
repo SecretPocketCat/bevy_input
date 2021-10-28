@@ -1,11 +1,11 @@
-use std::marker::PhantomData;
-
 use bevy::{input::InputSystem, prelude::*};
+#[cfg(feature = "serialize")]
+use bevy_extensions::panic_on_error;
 
 use crate::{action_map::{
     handle_gamepad_events, handle_keyboard_button_events, handle_mouse_button_events,
     process_axis_actions, process_button_actions, ActionInput, ActionMap, ActionMapInput,
-}, bindings_loader::{MapIoEvent, MapPath, load_map, process_binding_assets, process_map_event, setup_loader}};
+}, bindings_loader::{ActionMapLoad, ActionMapPath, ActionMapSave, MapIoEvent, load_map, process_map_event, save_map, setup_loader}};
 
 pub struct ActionInputPlugin<'a, TKeyAction, TAxisAction> {
     _key_t: std::marker::PhantomData<&'a TKeyAction>,
@@ -36,8 +36,8 @@ impl<'a, TKeyAction, TAxisAction> ActionInputPlugin<'a, TKeyAction, TAxisAction>
 impl<'a, TKeyAction, TAxisAction> Plugin for ActionInputPlugin<'a, TKeyAction, TAxisAction>
 where
     ActionMap<TKeyAction, TAxisAction>: Default,
-    TKeyAction: ActionMapInput + for<'de> serde::Deserialize<'de>,
-    TAxisAction: ActionMapInput + for<'de> serde::Deserialize<'de>,
+    TKeyAction: ActionMapInput + serde::Serialize + for<'de> serde::Deserialize<'de>,
+    TAxisAction: ActionMapInput + serde::Serialize + for<'de> serde::Deserialize<'de>,
     'a: 'static,
 {
     fn build(&self, app: &mut App) {
@@ -79,11 +79,16 @@ where
         #[cfg(feature = "serialize")]
         {
             app
-                .insert_resource(MapPath(self.path.to_owned()))
+                .insert_resource(ActionMapPath(self.path.to_owned()))
+                .insert_resource(ActionMapLoad::<TKeyAction, TAxisAction>(None))
+                .insert_resource(ActionMapSave(None))
                 .add_event::<MapIoEvent>()
                 .add_startup_system(setup_loader)
                 .add_system(process_map_event::<TKeyAction, TAxisAction>)
-                .add_system(load_map::<TKeyAction, TAxisAction>);
+                .add_system(load_map::<TKeyAction, TAxisAction>
+                    .chain(panic_on_error))
+                .add_system(save_map
+                    .chain(panic_on_error));
         }
     }
 }
