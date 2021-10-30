@@ -2,33 +2,21 @@ use bevy::{input::InputSystem, prelude::*};
 #[cfg(feature = "serialize")]
 use bevy_extensions::panic_on_error;
 
-use crate::{action_map::{
+use crate::{MapIoEvent, action_map::{
     handle_gamepad_events, handle_keyboard_button_events, handle_mouse_button_events,
     process_axis_actions, process_button_actions, ActionInput, ActionMap, ActionMapInput,
-}, bindings_loader::{ActionMapLoad, ActionMapPath, ActionMapSave, MapIoEvent, load_map, process_map_event, save_map, setup_loader}};
+}, bindings_loader::{ActionMapLoad, ActionMapSave, MapIoRequest, load_map, process_map_event, save_map}};
 
 pub struct ActionInputPlugin<'a, TKeyAction, TAxisAction> {
     _key_t: std::marker::PhantomData<&'a TKeyAction>,
     _axis_t: std::marker::PhantomData<&'a TAxisAction>,
-    #[cfg(feature = "serialize")]
-    path: String,
 }
 
-impl<'a, TKeyAction, TAxisAction> ActionInputPlugin<'a, TKeyAction, TAxisAction> {
-    #[cfg(not(feature = "serialize"))]
-    pub fn new() -> Self {
-        Self{ 
-            _key_t: std::marker::PhantomData,
-            _axis_t: std::marker::PhantomData
-        }
-    }
-
-    #[cfg(feature = "serialize")]
-    pub fn new(path: &'a str) -> Self {
-        Self{ 
-            _key_t: std::marker::PhantomData,
-            _axis_t: std::marker::PhantomData,
-            path: format!("assets\\{}", path),
+impl<'a, TKeyAction, TAxisAction> Default for ActionInputPlugin<'a, TKeyAction, TAxisAction> {
+    fn default() -> Self {
+        Self { 
+            _key_t: Default::default(), 
+            _axis_t: Default::default(),
         }
     }
 }
@@ -79,11 +67,10 @@ where
         #[cfg(feature = "serialize")]
         {
             app
-                .insert_resource(ActionMapPath(self.path.to_owned()))
                 .insert_resource(ActionMapLoad::<TKeyAction, TAxisAction>(None))
                 .insert_resource(ActionMapSave(None))
+                .add_event::<MapIoRequest>()
                 .add_event::<MapIoEvent>()
-                .add_startup_system(setup_loader)
                 .add_system(process_map_event::<TKeyAction, TAxisAction>)
                 .add_system(load_map::<TKeyAction, TAxisAction>
                     .chain(panic_on_error))

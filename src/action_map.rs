@@ -22,6 +22,8 @@ pub enum AxisBinding {
     GamepadAxis(GamepadAxisType),
 }
 
+// todo: impl with into
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum ButtonCode {
@@ -74,7 +76,7 @@ pub enum ButtonState {
     Released,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum ActionState {
     Pressed,
     Held(ActiveKeyData),
@@ -87,6 +89,17 @@ impl ActionState {
         match self {
             ActionState::Pressed | ActionState::Used => 0.,
             ActionState::Held(data) |  ActionState::Released(data) => data.duration,
+        }
+    }
+}
+
+impl Debug for ActionState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Pressed => write!(f, "Pressed"),
+            Self::Held(data) => write!(f, "Pressed: {:.2}", data.duration),
+            Self::Released(data) => write!(f, "Released: {:.2}", data.duration),
+            Self::Used => write!(f, "Used"),
         }
     }
 }
@@ -118,6 +131,10 @@ impl<T> PlayerData<T> {
             value: action,
             id: Some(id),
         }
+    }
+
+    pub fn value(&self) -> &T {
+        &self.value
     }
 }
 
@@ -300,6 +317,14 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
 }
 
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyAction, TAxisAction> {
+    pub fn get_key_bindings(&self) -> &KeyBindings<TKeyAction> {
+        &self.key_action_bindings
+    }
+
+    pub fn get_axis_bindings(&self) -> &AxisBindings<TAxisAction> {
+        &self.axis_action_bindings
+    }
+
     pub fn set_bindings(&mut self, key_action_bindings: KeyBindings<TKeyAction>, axis_action_bindings: AxisBindings<TAxisAction>,) {
         self.clear_bindings();
 

@@ -27,3 +27,5 @@ pub use plugin::ActionInputPlugin;
 pub use validation::BindingError;
 #[cfg(feature = "multiplayer")]
 pub use action_map::GamepadMap;
+#[cfg(feature = "serialize")]
+pub use bindings_loader::{MapIoEvent, MapIoRequest};
