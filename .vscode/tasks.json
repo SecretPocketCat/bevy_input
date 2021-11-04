@@ -28,7 +28,7 @@
         "--example",
         "serialize",
         "--features",
-        "bevy/dynamic multiplayer serialize"
+        "bevy/dynamic serialize"
       ],
       "problemMatcher": ["$rustc"],
       "label": "serialize example (dynamic)"
