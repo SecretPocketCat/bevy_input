@@ -106,7 +106,7 @@ impl Debug for ActionState {
 
 #[derive(Default, Debug, PartialEq)]
 pub struct ActiveKeyData {
-    duration: f32,
+    pub duration: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
