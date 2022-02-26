@@ -11,7 +11,7 @@ serialize = ["serde", "bevy/serialize", "ron", "anyhow", "futures-lite", "bevy_e
 validate = ["itertools"]
 
 [dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy", branch = "main", default-features = false, features = ["bevy_gilrs"] }
+bevy = { version = "0.6.1", default-features = false, features = ["bevy_gilrs"] }
 serde = { version = "1.0.130", features = ["derive"], optional = true }
 ron = { version = "0.7.0", optional = true }
 anyhow = { version = "*", optional = true }
@@ -20,7 +20,7 @@ futures-lite = { version = "*", optional = true }
 bevy_extensions = { git = "https://github.com/SecretPocketCat/bevy_extensions", optional = true }
 
 [dev-dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy = { version = "0.6.1" }
 bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui", branch = "bevy-main" }
 pretty_assertions = "1.0.0"
 test-case = "1.2.0"
