@@ -20,7 +20,7 @@ mod validation;
 #[cfg(feature = "serialize")]
 mod bindings_loader;
 
-pub use action_map::{ActionInput, ActionMap, ActionMapInput, AxisBinding, ButtonCode};
+pub use action_map::{ActionInput, ActionMap, ActionMapInput, AxisBinding, ButtonCode, ActionState};
 pub use macros::*;
 pub use plugin::ActionInputPlugin;
 #[cfg(feature = "validate")]
