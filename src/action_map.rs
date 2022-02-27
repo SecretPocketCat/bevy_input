@@ -864,7 +864,7 @@ pub(crate) fn process_axis_actions<
                     let deadzone = deadzone as f32 / DEADZONE_PRECISION;
                     if val.abs() > deadzone {
                         // normalize the value back to the 0.0..1.0 range
-                        let normalized_value = (val.abs() - 1.) / deadzone + 1.;
+                        let normalized_value = (val.abs() - deadzone) / (1. - deadzone);
                         normalized_value * val.signum()
                     } else {
                         0.
