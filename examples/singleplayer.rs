@@ -2,23 +2,24 @@ use bevy::prelude::*;
 use bevy_extensions::panic_on_error;
 use bevy_input::*;
 use std::fmt::Debug;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 enum InputAction {
     Jump,
     Shoot,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 enum InputAxis {
     Horizontal,
+    Vertical
 }
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::new())
+        .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
         .add_startup_system(setup.chain(panic_on_error))
         .add_system(debug_actions)
         .run();
@@ -48,7 +49,12 @@ fn setup(
         .bind_axis_with_deadzone(
             InputAxis::Horizontal,
             AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX),
-            0.5,
+            0.1,
+        )
+        .bind_axis_with_deadzone(
+            InputAxis::Vertical,
+            AxisBinding::GamepadAxis(GamepadAxisType::LeftStickY),
+            0.25,
         )
         .bind_axis(
             InputAxis::Horizontal,
@@ -87,7 +93,7 @@ fn setup(
                 flex_direction: FlexDirection::Row,
                 ..Default::default()
             },
-            material: materials.add(Color::DARK_GRAY.into()),
+            color: Color::DARK_GRAY.into(),
             ..Default::default()
         })
         .with_children(|builder| {
@@ -116,13 +122,15 @@ fn setup(
 fn debug_actions(input: Res<ActionInput<InputAction, InputAxis>>, mut query: Query<&mut Text>) {
     for mut text in query.iter_mut() {
         text.sections[0].value = format!(
-            "{:?}\n{:?}\n\n{:?}\n{:?}\n\n{:?}\n{:?}\n",
+            "{:?}\n{:?}\n\n{:?}\n{:?}\n\n{:?}\n{:?}\n\n{:?}\n{:?}\n",
             InputAction::Jump,
             input.get_button_action_state(InputAction::Jump),
             InputAction::Shoot,
             input.get_button_action_state(InputAction::Shoot),
             InputAxis::Horizontal,
-            input.get_axis(&InputAxis::Horizontal)
+            input.get_axis(&InputAxis::Horizontal),
+            InputAxis::Vertical,
+            input.get_axis(&InputAxis::Vertical)
         );
     }
 }

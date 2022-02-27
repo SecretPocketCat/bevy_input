@@ -21,7 +21,7 @@ bevy_extensions = { git = "https://github.com/SecretPocketCat/bevy_extensions", 
 
 [dev-dependencies]
 bevy = { version = "0.6.1" }
-bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui", branch = "bevy-main" }
+bevy-inspector-egui = "0.8.2"
 pretty_assertions = "1.0.0"
 test-case = "1.2.0"
 
