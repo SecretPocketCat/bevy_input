@@ -524,8 +524,12 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAc
         }
     }
 
+    pub fn get_xy_axes_raw(&self, x_axis: &TAxisAction, y_axis: &TAxisAction) -> Vec2 {
+        Vec2::new(self.get_axis(x_axis), self.get_axis(y_axis))
+    }
+
     pub fn get_xy_axes(&self, x_axis: &TAxisAction, y_axis: &TAxisAction) -> Vec2 {
-        Vec2::new(self.get_axis(x_axis), self.get_axis(y_axis)).normalize_or_zero()
+        self.get_xy_axes_raw(x_axis, y_axis).normalize_or_zero()
     }
 }
 
@@ -582,7 +586,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAc
         }
     }
 
-    pub fn get_xy_axes(
+    pub fn get_xy_axes_raw(
         &self,
         player_id: usize,
         x_axis: &TAxisAction,
@@ -592,7 +596,15 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAc
             self.get_axis(player_id, x_axis),
             self.get_axis(player_id, y_axis),
         )
-        .normalize_or_zero()
+    }
+
+    pub fn get_xy_axes(
+        &self,
+        player_id: usize,
+        x_axis: &TAxisAction,
+        y_axis: &TAxisAction,
+    ) -> Vec2 {
+        self.get_xy_axes_raw(player_id, x_axis, y_axis).normalize_or_zero()
     }
 }
 

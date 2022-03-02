@@ -23,7 +23,7 @@ struct Player(usize);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::new())
+        .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
         .add_startup_system(setup.chain(panic_on_error))
         .add_system(debug_player_actions)
         .run();
@@ -38,7 +38,13 @@ fn setup(
 ) -> Result<(), BindingError> {
     // gamepads
     for id in 1..=2 {
-        map.bind_button_action(id, InputAction::Dodge, GamepadButtonType::South)?
+        map
+            .bind_button_action(id, InputAction::Dodge, KeyCode::LShift)?
+            .bind_button_action(id, InputAction::Dodge, KeyCode::Space)?
+            .bind_button_action(id, InputAction::Dodge, GamepadButtonType::South)?
+            .bind_button_action(id, InputAction::Dodge, GamepadButtonType::East)?
+            .bind_button_action(id, InputAction::Dodge, GamepadButtonType::West)?
+            .bind_button_action(id, InputAction::Dodge, GamepadButtonType::North)?
             .bind_axis(
                 id,
                 InputAxis::Horizontal,
@@ -103,7 +109,7 @@ fn setup(
                 flex_wrap: FlexWrap::Wrap,
                 ..Default::default()
             },
-            material: materials.add(Color::DARK_GRAY.into()),
+            color: Color::DARK_GRAY.into(),
             ..Default::default()
         })
         .with_children(|builder| {
@@ -153,7 +159,7 @@ fn debug_player_actions(
             player.0,
             InputAction::Dodge,
             input.get_button_action_state(player.0, &InputAction::Dodge),
-            input.get_xy_axes(player.0, &InputAxis::Horizontal, &InputAxis::Vertical)
+            input.get_xy_axes_raw(player.0, &InputAxis::Horizontal, &InputAxis::Vertical)
         );
     }
 }
