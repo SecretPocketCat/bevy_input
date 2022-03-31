@@ -18,9 +18,9 @@ enum InputAxis {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
         .add_startup_system(setup.chain(panic_on_error))
         .add_system(debug_actions)
+        .add_action_input_systems_with_axis::<InputAction, InputAxis>()
         .run();
 }
 

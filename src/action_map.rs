@@ -1,4 +1,4 @@
-use crate::validation::BindingError;
+use crate::{app_ext::NoAxis, validation::BindingError};
 use bevy::{
     input::gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType},
     prelude::*,
@@ -151,7 +151,7 @@ impl<T> From<T> for PlayerData<T> {
 
 #[derive(Component, Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct ActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
+pub struct ActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput = NoAxis> {
     pub(crate) key_action_bindings: KeyBindings<TKeyAction>,
     pub(crate) axis_action_bindings: AxisBindings<TAxisAction>,
     #[cfg_attr(feature = "serialize", serde(skip))]

@@ -10,17 +10,17 @@
 #![allow(clippy::cast_precision_loss)]
 
 mod action_map;
+mod app_ext;
 #[cfg(feature = "serialize")]
 mod bindings_loader;
 mod macros;
-mod plugin;
 mod validation;
 
 pub use action_map::{
     ActionInput, ActionMap, ActionMapInput, ActionState, AxisBinding, ButtonCode, InputGamepad,
 };
+pub use app_ext::AppActionInputExt;
 #[cfg(feature = "serialize")]
 pub use bindings_loader::{MapIoEvent, MapIoRequest};
 pub use macros::*;
-pub use plugin::ActionInputPlugin;
 pub use validation::BindingError;

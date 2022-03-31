@@ -1,7 +1,3 @@
-use bevy::{input::InputSystem, prelude::*};
-#[cfg(feature = "serialize")]
-use bevy_extensions::panic_on_error;
-
 use crate::action_map::add_input;
 #[cfg(feature = "serialize")]
 use crate::{
@@ -14,6 +10,11 @@ use crate::{
     },
     MapIoEvent,
 };
+use bevy::{input::InputSystem, prelude::*};
+#[cfg(feature = "serialize")]
+use bevy_extensions::panic_on_error;
+
+pub const PROCESS_INPUT_LABEL: &str = "UPDATE_STATES";
 
 #[cfg(not(feature = "serialize"))]
 use crate::action_map::{
@@ -21,30 +22,32 @@ use crate::action_map::{
     process_button_actions, ActionInput, ActionMap, ActionMapInput,
 };
 
-pub struct ActionInputPlugin<'a, TKeyAction, TAxisAction> {
-    _key_t: std::marker::PhantomData<&'a TKeyAction>,
-    _axis_t: std::marker::PhantomData<&'a TAxisAction>,
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct NoAxis;
+
+// todo:  fix serialization
+pub trait AppActionInputExt {
+    fn add_action_input_systems<TKeyAction>(&mut self) -> &mut Self
+    where
+        ActionMap<TKeyAction, NoAxis>: Default,
+        TKeyAction: ActionMapInput + 'static;
+
+    fn add_action_input_systems_with_axis<TKeyAction, TAxisAction>(&mut self) -> &mut Self
+    where
+        ActionMap<TKeyAction, TAxisAction>: Default,
+        TKeyAction: ActionMapInput + 'static,
+        TAxisAction: ActionMapInput + 'static;
 }
 
-impl<'a, TKeyAction, TAxisAction> Default for ActionInputPlugin<'a, TKeyAction, TAxisAction> {
-    fn default() -> Self {
-        Self {
-            _key_t: Default::default(),
-            _axis_t: Default::default(),
-        }
-    }
-}
-
-impl<'a, TKeyAction, TAxisAction> Plugin for ActionInputPlugin<'a, TKeyAction, TAxisAction>
-where
-    ActionMap<TKeyAction, TAxisAction>: Default,
-    TKeyAction: ActionMapInput,
-    TAxisAction: ActionMapInput,
-    'a: 'static,
-{
-    fn build(&self, app: &mut App) {
-        const PROCESS_INPUT_LABEL: &str = "UPDATE_STATES";
-        app.add_system_to_stage(CoreStage::Last, add_input::<TKeyAction, TAxisAction>)
+impl AppActionInputExt for App {
+    fn add_action_input_systems_with_axis<TKeyAction, TAxisAction>(&mut self) -> &mut Self
+    where
+        ActionMap<TKeyAction, TAxisAction>: Default,
+        TKeyAction: ActionMapInput + 'static,
+        TAxisAction: ActionMapInput + 'static,
+    {
+        self.add_system_to_stage(CoreStage::Last, add_input::<TKeyAction, TAxisAction>)
             .add_system_set_to_stage(
                 CoreStage::PreUpdate,
                 SystemSet::new()
@@ -74,7 +77,7 @@ where
 
         #[cfg(feature = "serialize")]
         {
-            app.insert_resource(ActionMapLoad::<TKeyAction, TAxisAction>(None))
+            self.insert_resource(ActionMapLoad::<TKeyAction, TAxisAction>(None))
                 .insert_resource(ActionMapSave(None))
                 .add_event::<MapIoRequest>()
                 .add_event::<MapIoEvent>()
@@ -82,5 +85,15 @@ where
                 .add_system(load_map::<TKeyAction, TAxisAction>.chain(panic_on_error))
                 .add_system(save_map.chain(panic_on_error));
         }
+
+        self
+    }
+
+    fn add_action_input_systems<TKeyAction>(&mut self) -> &mut Self
+    where
+        ActionMap<TKeyAction>: Default,
+        TKeyAction: ActionMapInput + 'static,
+    {
+        self.add_action_input_systems_with_axis::<TKeyAction, NoAxis>()
     }
 }
