@@ -1,131 +1,100 @@
-#![feature(destructuring_assignment)]
-#![feature(if_let_guard)]
-
 use bevy::prelude::*;
 use bevy_extensions::panic_on_error;
 use bevy_input::*;
-use serde::{Serialize, Deserialize};
+use std::fmt::Debug;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAction {
-    Dodge,
+    Jump,
+    Shoot,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAxis {
     Horizontal,
     Vertical,
 }
-
-#[derive(Component)]
-struct Player(usize);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
         .add_startup_system(setup.chain(panic_on_error))
-        .add_system(debug_player_actions)
+        .add_system(debug_actions)
         .run();
 }
 
-fn setup(
-    mut map: ResMut<ActionMap<InputAction, InputAxis>>,
-    mut gamepad_map: ResMut<GamepadMap>,
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-) -> Result<(), BindingError> {
-    // gamepads
-    for id in 1..=2 {
-        map
-            .bind_button_action(id, InputAction::Dodge, KeyCode::LShift)?
-            .bind_button_action(id, InputAction::Dodge, KeyCode::Space)?
-            .bind_button_action(id, InputAction::Dodge, GamepadButtonType::South)?
-            .bind_button_action(id, InputAction::Dodge, GamepadButtonType::East)?
-            .bind_button_action(id, InputAction::Dodge, GamepadButtonType::West)?
-            .bind_button_action(id, InputAction::Dodge, GamepadButtonType::North)?
-            .bind_axis(
-                id,
-                InputAxis::Horizontal,
-                AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX),
-            )
-            .bind_axis(
-                id,
-                InputAxis::Horizontal,
-                AxisBinding::GamepadAxis(GamepadAxisType::DPadX),
-            )
-            .bind_axis(
-                id,
-                InputAxis::Vertical,
-                AxisBinding::GamepadAxis(GamepadAxisType::LeftStickY),
-            )
-            .bind_axis(
-                id,
-                InputAxis::Vertical,
-                AxisBinding::GamepadAxis(GamepadAxisType::DPadY),
-            );
-
-        gamepad_map.map_gamepad(id - 1, id);
-    }
-
-    // kb
-    map.bind_button_action(3, InputAction::Dodge, MouseButton::Left)?
-        .bind_axis(
-            3,
-            InputAxis::Horizontal,
-            AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()),
-        )
-        .bind_axis(
-            3,
-            InputAxis::Vertical,
-            AxisBinding::Buttons(KeyCode::Down.into(), KeyCode::Up.into()),
-        )
-        .bind_button_action(4, InputAction::Dodge, KeyCode::Space)?
-        .bind_axis(
-            4,
-            InputAxis::Horizontal,
-            AxisBinding::Buttons(KeyCode::A.into(), KeyCode::D.into()),
-        )
-        .bind_axis(
-            4,
-            InputAxis::Vertical,
-            AxisBinding::Buttons(KeyCode::S.into(), KeyCode::W.into()),
-        );
-
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) -> Result<(), BindingError> {
     commands.spawn_bundle(UiCameraBundle::default());
 
-    commands
-        .spawn_bundle(NodeBundle {
-            style: Style {
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                size: Size {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+    for i in 0..=1 {
+        let mut map = ActionMap::<InputAction, InputAxis>::new();
+        if i == 0 {
+            // map moouse & kb just to player 1
+            map.bind_button_action(InputAction::Jump, KeyCode::Space)?
+                .bind_button_action(InputAction::Shoot, KeyCode::LShift)?
+                .bind_button_combination_action(
+                    InputAction::Shoot,
+                    inputs_vec![MouseButton::Left, KeyCode::LControl],
+                )?
+                .bind_button_combination_action(
+                    InputAction::Shoot,
+                    inputs_vec![MouseButton::Left, KeyCode::RControl],
+                )?
+                .bind_axis(
+                    InputAxis::Horizontal,
+                    AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()),
+                )
+                .bind_axis(
+                    InputAxis::Horizontal,
+                    AxisBinding::Buttons(KeyCode::A.into(), KeyCode::D.into()),
+                )
+                .bind_axis(
+                    InputAxis::Horizontal,
+                    AxisBinding::Buttons(MouseButton::Left.into(), MouseButton::Right.into()),
+                );
+        }
+
+        // map gamepad to both
+        map.bind_button_combination_action(
+            InputAction::Jump,
+            inputs_vec![KeyCode::W, GamepadButtonType::North],
+        )?
+        .bind_button_action(InputAction::Jump, GamepadButtonType::South)?
+        .bind_axis_with_deadzone(
+            InputAxis::Horizontal,
+            AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX),
+            0.1,
+        )
+        .bind_axis_with_deadzone(
+            InputAxis::Vertical,
+            AxisBinding::GamepadAxis(GamepadAxisType::LeftStickY),
+            0.25,
+        )
+        .bind_axis(
+            InputAxis::Horizontal,
+            AxisBinding::GamepadAxis(GamepadAxisType::DPadX),
+        );
+
+        commands
+            .spawn_bundle(NodeBundle {
+                style: Style {
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    size: Size {
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                    },
+                    // position_type: PositionType::Absolute,
+                    flex_direction: FlexDirection::Row,
+                    ..Default::default()
                 },
-                position_type: PositionType::Absolute,
-                flex_direction: FlexDirection::Row,
-                flex_wrap: FlexWrap::Wrap,
+                color: Color::DARK_GRAY.into(),
                 ..Default::default()
-            },
-            color: Color::DARK_GRAY.into(),
-            ..Default::default()
-        })
-        .with_children(|builder| {
-            for id in 1..=4 {
+            })
+            .with_children(|builder| {
                 builder
                     .spawn_bundle(TextBundle {
-                        style: Style {
-                            size: Size {
-                                width: Val::Percent(50.),
-                                height: Val::Percent(50.),
-                            },
-                            flex_direction: FlexDirection::ColumnReverse,
-                            align_items: AlignItems::Center,
-                            justify_content: JustifyContent::Center,
-                            ..Default::default()
-                        },
                         text: Text::with_section(
                             "!",
                             TextStyle {
@@ -142,24 +111,26 @@ fn setup(
                         ),
                         ..Default::default()
                     })
-                    .insert(Player(id));
-            }
-        });
+                    .insert(map)
+                    .insert(InputGamepad { pad_id: i });
+            });
+    }
 
     Ok(())
 }
 
-fn debug_player_actions(
-    input: Res<ActionInput<InputAction, InputAxis>>,
-    mut query: Query<(&mut Text, &Player)>,
-) {
-    for (mut text, player) in query.iter_mut() {
+fn debug_actions(mut query: Query<(&mut Text, &ActionInput<InputAction, InputAxis>)>) {
+    for (mut text, input) in query.iter_mut() {
         text.sections[0].value = format!(
-            "Player {:?}\n\n{:?}\n{:?}\n\nMovement\n{:?}",
-            player.0,
-            InputAction::Dodge,
-            input.get_button_action_state(player.0, &InputAction::Dodge),
-            input.get_xy_axes_raw(player.0, &InputAxis::Horizontal, &InputAxis::Vertical)
+            "{:?}\n{:?}\n\n{:?}\n{:?}\n\n{:?}\n{:?}\n\n{:?}\n{:?}\n",
+            InputAction::Jump,
+            input.get_button_action_state(InputAction::Jump),
+            InputAction::Shoot,
+            input.get_button_action_state(InputAction::Shoot),
+            InputAxis::Horizontal,
+            input.get_axis(&InputAxis::Horizontal),
+            InputAxis::Vertical,
+            input.get_axis(&InputAxis::Vertical)
         );
     }
 }
