@@ -2,18 +2,17 @@ use bevy::prelude::*;
 use bevy_extensions::panic_on_error;
 use bevy_input::*;
 use std::fmt::Debug;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAction {
     Jump,
     Shoot,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAxis {
     Horizontal,
-    Vertical
+    Vertical,
 }
 
 fn main() {
@@ -25,12 +24,8 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut map: ResMut<ActionMap<InputAction, InputAxis>>,
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-) -> Result<(), BindingError> {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) -> Result<(), BindingError> {
+    let mut map = ActionMap::<InputAction, InputAxis>::new();
     map.bind_button_action(InputAction::Jump, KeyCode::Space)?
         .bind_button_combination_action(
             InputAction::Jump,
@@ -97,30 +92,32 @@ fn setup(
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    "!",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Light.ttf"),
-                        font_size: 30.0,
-                        color: Color::ANTIQUE_WHITE,
-                        ..Default::default()
-                    },
-                    TextAlignment {
-                        horizontal: HorizontalAlign::Left,
-                        vertical: VerticalAlign::Center,
-                        ..Default::default()
-                    },
-                ),
-                ..Default::default()
-            });
+            builder
+                .spawn_bundle(TextBundle {
+                    text: Text::with_section(
+                        "!",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Light.ttf"),
+                            font_size: 30.0,
+                            color: Color::ANTIQUE_WHITE,
+                            ..Default::default()
+                        },
+                        TextAlignment {
+                            horizontal: HorizontalAlign::Left,
+                            vertical: VerticalAlign::Center,
+                            ..Default::default()
+                        },
+                    ),
+                    ..Default::default()
+                })
+                .insert(map);
         });
 
     Ok(())
 }
 
-fn debug_actions(input: Res<ActionInput<InputAction, InputAxis>>, mut query: Query<&mut Text>) {
-    for mut text in query.iter_mut() {
+fn debug_actions(mut query: Query<(&mut Text, &ActionInput<InputAction, InputAxis>)>) {
+    for (mut text, input) in query.iter_mut() {
         text.sections[0].value = format!(
             "{:?}\n{:?}\n\n{:?}\n{:?}\n\n{:?}\n{:?}\n\n{:?}\n{:?}\n",
             InputAction::Jump,

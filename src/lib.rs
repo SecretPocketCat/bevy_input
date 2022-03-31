@@ -1,7 +1,5 @@
-#![feature(destructuring_assignment)]
 #![feature(if_let_guard)]
 #![feature(trait_alias)]
-
 #![warn(clippy::pedantic)]
 #![allow(clippy::default_trait_access)]
 #![allow(clippy::module_name_repetitions)]
@@ -11,21 +9,18 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::cast_precision_loss)]
 
-
 mod action_map;
-mod macros;
-mod plugin;
-#[cfg(feature = "validate")]
-mod validation;
 #[cfg(feature = "serialize")]
 mod bindings_loader;
+mod macros;
+mod plugin;
+mod validation;
 
-pub use action_map::{ActionInput, ActionMap, ActionMapInput, AxisBinding, ButtonCode, ActionState};
-pub use macros::*;
-pub use plugin::ActionInputPlugin;
-#[cfg(feature = "validate")]
-pub use validation::BindingError;
-#[cfg(feature = "multiplayer")]
-pub use action_map::GamepadMap;
+pub use action_map::{
+    ActionInput, ActionMap, ActionMapInput, ActionState, AxisBinding, ButtonCode, InputGamepad,
+};
 #[cfg(feature = "serialize")]
 pub use bindings_loader::{MapIoEvent, MapIoRequest};
+pub use macros::*;
+pub use plugin::ActionInputPlugin;
+pub use validation::BindingError;

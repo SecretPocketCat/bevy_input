@@ -43,12 +43,7 @@
     {
       "type": "cargo",
       "command": "run",
-      "args": [
-        "--example",
-        "multiplayer",
-        "--features",
-        "bevy/dynamic multiplayer"
-      ],
+      "args": ["--example", "multiplayer", "--features", "bevy/dynamic"],
       "problemMatcher": ["$rustc"],
       "label": "multiplayer example (dynamic)"
     }

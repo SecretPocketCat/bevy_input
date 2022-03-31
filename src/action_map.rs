@@ -1,5 +1,9 @@
 use crate::validation::BindingError;
-use bevy::{input::gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType}, prelude::*, reflect::{TypeUuid, Uuid}};
+use bevy::{
+    input::gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType},
+    prelude::*,
+    reflect::{TypeUuid, Uuid},
+};
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
@@ -13,7 +17,8 @@ pub trait ActionMapInput = Debug + Hash + Eq + Clone + Copy + Send + Sync;
 pub(crate) type KeyActionBinding = HashSet<ButtonCode>;
 
 pub(crate) type KeyBindings<TKeyAction> = HashMap<PlayerData<TKeyAction>, Vec<KeyActionBinding>>;
-pub(crate) type AxisBindings<TAxisAction> = HashMap<PlayerData<TAxisAction>, HashSet<(AxisBinding, u32)>>;
+pub(crate) type AxisBindings<TAxisAction> =
+    HashMap<PlayerData<TAxisAction>, HashSet<(AxisBinding, u32)>>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -88,7 +93,7 @@ impl ActionState {
     pub fn duration(&self) -> f32 {
         match self {
             ActionState::Pressed | ActionState::Used => 0.,
-            ActionState::Held(data) |  ActionState::Released(data) => data.duration,
+            ActionState::Held(data) | ActionState::Released(data) => data.duration,
         }
     }
 }
@@ -144,7 +149,7 @@ impl<T> From<T> for PlayerData<T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
     pub(crate) key_action_bindings: KeyBindings<TKeyAction>,
@@ -153,14 +158,13 @@ pub struct ActionMap<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> {
     bound_keys: HashSet<PlayerData<ButtonCode>>,
     #[cfg_attr(feature = "serialize", serde(skip))]
     bound_axes: HashSet<GamepadAxisType>,
-    #[cfg(feature = "validate")]
     #[cfg_attr(feature = "serialize", serde(skip))]
     pub(crate) bound_key_combinations:
         Vec<(PlayerData<HashSet<ButtonCode>>, Vec<HashSet<ButtonCode>>)>,
 }
 
 #[cfg(feature = "serialize")]
-impl <TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> TypeUuid
+impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> TypeUuid
     for ActionMap<TKeyAction, TAxisAction>
 {
     const TYPE_UUID: bevy::reflect::Uuid = Uuid::from_u128(139351808413923814412416017277321670424);
@@ -180,33 +184,14 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> Default
     }
 }
 
-#[cfg(not(feature = "multiplayer"))]
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyAction, TAxisAction> {
-    #[cfg(not(feature = "validate"))]
-    pub fn bind_button_action<K: Into<TKeyAction>, B: Into<ButtonCode>>(
-        &mut self,
-        action: K,
-        button: B,
-    ) -> &mut Self {
-        self.bind_button_action_internal(action, button, None)
-    }
-
-    #[cfg(not(feature = "validate"))]
-    pub fn bind_button_combination_action<
-        K: Into<TKeyAction>,
-        B: IntoIterator<Item = ButtonCode>,
-    >(
-        &mut self,
-        action: K,
-        binding: B,
-    ) -> &mut Self {
-        self.bind_button_combination_action_internal(action, binding, None)
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// # Errors
     ///
     /// Will return an `Err` if there's a binding conflict
-    #[cfg(feature = "validate")]
     pub fn bind_button_action<K: Into<TKeyAction>, B: Into<ButtonCode>>(
         &mut self,
         action: K,
@@ -218,7 +203,6 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
     /// # Errors
     ///
     /// Will return an `Err` if there's a binding conflict
-    #[cfg(feature = "validate")]
     pub fn bind_button_combination_action<
         K: Into<TKeyAction>,
         B: IntoIterator<Item = ButtonCode>,
@@ -248,74 +232,6 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
     }
 }
 
-#[cfg(feature = "multiplayer")]
-impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyAction, TAxisAction> {
-    #[cfg(not(feature = "validate"))]
-    pub fn bind_button_action<K: Into<TKeyAction>, B: Into<ButtonCode>>(
-        &mut self,
-        player_id: usize,
-        action: K,
-        button: B,
-    ) -> &mut Self {
-        self.bind_button_action_internal(action, button, Some(player_id))
-    }
-
-    #[cfg(not(feature = "validate"))]
-    pub fn bind_button_combination_action<
-        K: Into<TKeyAction>,
-        B: IntoIterator<Item = ButtonCode>,
-    >(
-        &mut self,
-        player_id: usize,
-        action: K,
-        binding: B,
-    ) -> &mut Self {
-        self.bind_button_combination_action_internal(action, binding, Some(player_id))
-    }
-
-    #[cfg(feature = "validate")]
-    pub fn bind_button_action<K: Into<TKeyAction>, B: Into<ButtonCode>>(
-        &mut self,
-        player_id: usize,
-        action: K,
-        button: B,
-    ) -> Result<&mut Self, BindingError> {
-        self.bind_button_action_internal(action, button, Some(player_id))
-    }
-
-    #[cfg(feature = "validate")]
-    pub fn bind_button_combination_action<
-        K: Into<TKeyAction>,
-        B: IntoIterator<Item = ButtonCode>,
-    >(
-        &mut self,
-        player_id: usize,
-        action: K,
-        binding: B,
-    ) -> Result<&mut Self, BindingError> {
-        self.bind_button_combination_action_internal(action, binding, Some(player_id))
-    }
-
-    pub fn bind_axis<A: Into<TAxisAction>, B: Into<AxisBinding>>(
-        &mut self,
-        player_id: usize,
-        action: A,
-        axis_binding: B,
-    ) -> &mut Self {
-        self.bind_axis_with_deadzone(player_id, action, axis_binding, 0.)
-    }
-
-    pub fn bind_axis_with_deadzone<A: Into<TAxisAction>, B: Into<AxisBinding>>(
-        &mut self,
-        player_id: usize,
-        action: A,
-        axis_binding: B,
-        deadzone: f32,
-    ) -> &mut Self {
-        self.bind_axis_with_deadzone_internal(action, axis_binding, deadzone, Some(player_id))
-    }
-}
-
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyAction, TAxisAction> {
     pub fn get_key_bindings(&self) -> &KeyBindings<TKeyAction> {
         &self.key_action_bindings
@@ -325,7 +241,11 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
         &self.axis_action_bindings
     }
 
-    pub fn set_bindings(&mut self, key_action_bindings: KeyBindings<TKeyAction>, axis_action_bindings: AxisBindings<TAxisAction>,) {
+    pub fn set_bindings(
+        &mut self,
+        key_action_bindings: KeyBindings<TKeyAction>,
+        axis_action_bindings: AxisBindings<TAxisAction>,
+    ) {
         self.clear_bindings();
 
         for action in key_action_bindings {
@@ -352,11 +272,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
         self.axis_action_bindings = Default::default();
         self.bound_keys = Default::default();
         self.bound_axes = Default::default();
-
-        #[cfg(feature = "validate")]
-        {
-            self.bound_key_combinations = Default::default();
-        }
+        self.bound_key_combinations = Default::default();
     }
 
     fn bind_button_action_internal<K: Into<TKeyAction>, B: Into<ButtonCode>>(
@@ -384,11 +300,8 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
         };
         let binding: KeyActionBinding = binding.into_iter().collect();
 
-        #[cfg(feature = "validate")]
-        {
-            if let Err(err) = crate::validation::add_binding(self, player_id, binding.clone()) {
-                return Err(err);
-            }
+        if let Err(err) = crate::validation::add_binding(self, player_id, binding.clone()) {
+            return Err(err);
         }
 
         self.key_action_bindings
@@ -458,20 +371,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
     }
 }
 
-#[cfg(feature = "multiplayer")]
-#[derive(Default)]
-pub struct GamepadMap {
-    connected_gamepads: HashSet<Gamepad>,
-    mapped_gamepads: HashMap<usize, usize>,
-}
-
-#[cfg(feature = "multiplayer")]
-impl GamepadMap {
-    pub fn map_gamepad(&mut self, gamepad_id: usize, player_id: usize) {
-        self.mapped_gamepads.insert(gamepad_id, player_id);
-    }
-}
-
+#[derive(Component)]
 pub struct ActionInput<TKeyAction, TAxisAction> {
     pub(crate) button_states: HashMap<DeviceData<ButtonCode>, Option<ButtonState>>,
     button_actions: HashMap<PlayerData<TKeyAction>, ActionState>,
@@ -490,7 +390,6 @@ impl<TKeyAction, TAxisAction> Default for ActionInput<TKeyAction, TAxisAction> {
     }
 }
 
-#[cfg(not(feature = "multiplayer"))]
 impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAction, TAxisAction> {
     pub fn get_button_action_state(&self, button: TKeyAction) -> Option<&ActionState> {
         self.get_action_state(&button.into())
@@ -505,7 +404,10 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAc
     }
 
     pub fn just_released(&self, button: TKeyAction) -> bool {
-        self.is_button_action_in_state(button.into(), ActionState::Released(ActiveKeyData::default()))
+        self.is_button_action_in_state(
+            button.into(),
+            ActionState::Released(ActiveKeyData::default()),
+        )
     }
 
     pub fn used(&self, button: TKeyAction) -> bool {
@@ -530,81 +432,6 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAc
 
     pub fn get_xy_axes(&self, x_axis: &TAxisAction, y_axis: &TAxisAction) -> Vec2 {
         self.get_xy_axes_raw(x_axis, y_axis).normalize_or_zero()
-    }
-}
-
-#[cfg(feature = "multiplayer")]
-impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAction, TAxisAction> {
-    pub fn get_button_action_state(
-        &self,
-        player_id: usize,
-        button: &TKeyAction,
-    ) -> Option<&ActionState> {
-        self.get_action_state(&PlayerData::new_with_id(*button, player_id))
-    }
-
-    pub fn just_pressed(&self, player_id: usize, button: TKeyAction) -> bool {
-        self.is_button_action_in_state(
-            PlayerData::new_with_id(button, player_id),
-            ActionState::Pressed,
-        )
-    }
-
-    pub fn held(&self, player_id: usize, button: TKeyAction) -> bool {
-        self.is_button_action_in_state(
-            PlayerData::new_with_id(button, player_id),
-            ActionState::Held(Default::default()),
-        )
-    }
-
-    pub fn just_released(&self, player_id: usize, button: TKeyAction) -> bool {
-        self.is_button_action_in_state(
-            PlayerData::new_with_id(button, player_id),
-            ActionState::Released(Default::default()),
-        )
-    }
-
-    pub fn used(&self, player_id: usize, button: TKeyAction) -> bool {
-        self.is_button_action_in_state(
-            PlayerData::new_with_id(button, player_id),
-            ActionState::Used,
-        )
-    }
-
-    pub fn use_button_action(&mut self, player_id: usize, button: TKeyAction) {
-        self.button_actions.insert(
-            PlayerData::new_with_id(button, player_id),
-            ActionState::Used,
-        );
-    }
-
-    pub fn get_axis(&self, player_id: usize, axis: &TAxisAction) -> f32 {
-        if let Some(axis_value) = self.axes.get(&PlayerData::new_with_id(*axis, player_id)) {
-            *axis_value
-        } else {
-            0.
-        }
-    }
-
-    pub fn get_xy_axes_raw(
-        &self,
-        player_id: usize,
-        x_axis: &TAxisAction,
-        y_axis: &TAxisAction,
-    ) -> Vec2 {
-        Vec2::new(
-            self.get_axis(player_id, x_axis),
-            self.get_axis(player_id, y_axis),
-        )
-    }
-
-    pub fn get_xy_axes(
-        &self,
-        player_id: usize,
-        x_axis: &TAxisAction,
-        y_axis: &TAxisAction,
-    ) -> Vec2 {
-        self.get_xy_axes_raw(player_id, x_axis, y_axis).normalize_or_zero()
     }
 }
 
@@ -633,79 +460,88 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionInput<TKeyAc
     }
 }
 
-pub(crate) fn handle_keyboard_button_events<
+#[derive(Component)]
+pub struct InputGamepad {
+    pub pad_id: usize,
+}
+
+pub(crate) fn handle_keyboard_input<
     TKeyAction: ActionMapInput + 'static,
     TAxisAction: ActionMapInput + 'static,
 >(
-    mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
+    mut input_q: Query<(
+        &ActionMap<TKeyAction, TAxisAction>,
+        &mut ActionInput<TKeyAction, TAxisAction>,
+    )>,
     kb_input: Res<Input<KeyCode>>,
-    map: Res<ActionMap<TKeyAction, TAxisAction>>,
 ) {
-    for btn_data in &map.bound_keys {
-        if let PlayerData {
-            value: ButtonCode::Kb(key),
-            ..
-        } = btn_data
-        {
-            input
-                .button_states
-                .insert(*btn_data, get_button_state(&kb_input, key));
+    for (map, mut input) in input_q.iter_mut() {
+        for btn_data in &map.bound_keys {
+            if let PlayerData {
+                value: ButtonCode::Kb(key),
+                ..
+            } = btn_data
+            {
+                input
+                    .button_states
+                    .insert(*btn_data, get_button_state(&kb_input, key));
+            }
         }
     }
 }
 
-pub(crate) fn handle_mouse_button_events<
+pub(crate) fn handle_mouse_input<
     TKeyAction: ActionMapInput + 'static,
     TAxisAction: ActionMapInput + 'static,
 >(
-    mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
+    mut input_q: Query<(
+        &ActionMap<TKeyAction, TAxisAction>,
+        &mut ActionInput<TKeyAction, TAxisAction>,
+    )>,
     mouse_input: Res<Input<MouseButton>>,
-    map: Res<ActionMap<TKeyAction, TAxisAction>>,
 ) {
-    for btn_data in &map.bound_keys {
-        if let PlayerData {
-            value: ButtonCode::Mouse(button),
-            ..
-        } = btn_data
-        {
-            input
-                .button_states
-                .insert(*btn_data, get_button_state(&mouse_input, button));
+    for (map, mut input) in input_q.iter_mut() {
+        for btn_data in &map.bound_keys {
+            if let PlayerData {
+                value: ButtonCode::Mouse(button),
+                ..
+            } = btn_data
+            {
+                input
+                    .button_states
+                    .insert(*btn_data, get_button_state(&mouse_input, button));
+            }
         }
     }
 }
 
+// todo: optional device id from map
 pub(crate) fn handle_gamepad_events<
     TKeyAction: ActionMapInput + 'static,
     TAxisAction: ActionMapInput + 'static,
 >(
     mut gamepad_events: EventReader<GamepadEvent>,
-    mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
-    #[cfg(feature = "multiplayer")] mut gamepad_map: ResMut<GamepadMap>,
-    map: Res<ActionMap<TKeyAction, TAxisAction>>,
+    mut input_q: Query<(
+        &ActionMap<TKeyAction, TAxisAction>,
+        &mut ActionInput<TKeyAction, TAxisAction>,
+        Option<&InputGamepad>,
+    )>,
     gamepad_input: Res<Input<GamepadButton>>,
 ) {
-    for event in gamepad_events.iter() {
-        match event {
-            GamepadEvent(gamepad, GamepadEventType::ButtonChanged(button, _strength)) => {
-                let input_code = ButtonCode::Gamepad(*button);
-                #[cfg(feature = "multiplayer")]
-                {
-                    if let Some(player_id) = gamepad_map.mapped_gamepads.get(&gamepad.0) {
-                        if map
-                            .bound_keys
-                            .get(&input_code.player_data(Some(*player_id)))
-                            .is_some()
-                        {
-                            input.button_states.insert(
-                                input_code.player_data(Some(*player_id)),
-                                get_button_state(&gamepad_input, &GamepadButton(*gamepad, *button)),
-                            );
+    let all_events: Vec<_> = gamepad_events.iter().collect();
+
+    for (map, mut input, pad_id) in input_q.iter_mut() {
+        for event in all_events.iter() {
+            match event {
+                GamepadEvent(gamepad, GamepadEventType::ButtonChanged(button, _strength)) => {
+                    if let Some(pad_id) = pad_id {
+                        if pad_id.pad_id != gamepad.0 {
+                            // pad id doesn't match - skip to next id
+                            continue;
                         }
                     }
-                }
-                #[cfg(not(feature = "multiplayer"))]
-                {
+
+                    let input_code = ButtonCode::Gamepad(*button);
                     if map.bound_keys.get(&input_code.player_data(None)).is_some() {
                         input.button_states.insert(
                             input_code.player_data(None),
@@ -713,19 +549,15 @@ pub(crate) fn handle_gamepad_events<
                         );
                     }
                 }
-            }
-            GamepadEvent(gamepad, GamepadEventType::AxisChanged(axis_type, strength)) => {
-                if map.bound_axes.get(axis_type).is_some() {
-                    #[cfg(feature = "multiplayer")]
-                    {
-                        if let Some(player_id) = gamepad_map.mapped_gamepads.get(&gamepad.0) {
-                            input
-                                .gamepad_axes_values
-                                .insert(DeviceData::new_with_id(*axis_type, *player_id), *strength);
+                GamepadEvent(gamepad, GamepadEventType::AxisChanged(axis_type, strength)) => {
+                    if let Some(pad_id) = pad_id {
+                        if pad_id.pad_id != gamepad.0 {
+                            // pad id doesn't match - skip to next id
+                            continue;
                         }
                     }
-                    #[cfg(not(feature = "multiplayer"))]
-                    {
+
+                    if map.bound_axes.get(axis_type).is_some() {
                         input.gamepad_axes_values.insert(
                             DeviceData {
                                 value: *axis_type,
@@ -735,17 +567,8 @@ pub(crate) fn handle_gamepad_events<
                         );
                     }
                 }
+                _ => {}
             }
-            #[cfg(feature = "multiplayer")]
-            GamepadEvent(gamepad, GamepadEventType::Connected) => {
-                gamepad_map.connected_gamepads.insert(*gamepad);
-                println!("Gamepad Connected: {}", gamepad.0);
-            }
-            #[cfg(feature = "multiplayer")]
-            GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
-                gamepad_map.connected_gamepads.remove(gamepad);
-            }
-            _ => {}
         }
     }
 }
@@ -754,81 +577,85 @@ pub(crate) fn process_button_actions<
     TKeyAction: ActionMapInput + 'static,
     TAxisAction: ActionMapInput + 'static,
 >(
-    mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
-    map: Res<ActionMap<TKeyAction, TAxisAction>>,
+    mut input_q: Query<(
+        &ActionMap<TKeyAction, TAxisAction>,
+        &mut ActionInput<TKeyAction, TAxisAction>,
+    )>,
     time: Res<Time>,
 ) {
-    'actions: for (action_data, bindings) in &map.key_action_bindings {
-        let current_state = input.get_action_state(action_data);
-        let current_duration = current_state.unwrap_or(&ActionState::Used).duration();
-        match current_state {
-            None | Some(ActionState::Released(..) | ActionState::Used) => {
-                'bindings: for binding_keys in bindings {
-                    let mut just_pressed_at_least_one_key = false;
+    for (map, mut input) in input_q.iter_mut() {
+        'actions: for (action_data, bindings) in &map.key_action_bindings {
+            let current_state = input.get_action_state(action_data);
+            let current_duration = current_state.unwrap_or(&ActionState::Used).duration();
+            match current_state {
+                None | Some(ActionState::Released(..) | ActionState::Used) => {
+                    'bindings: for binding_keys in bindings {
+                        let mut just_pressed_at_least_one_key = false;
 
-                    for k in binding_keys.iter() {
-                        if let Some(key_state) =
-                            input.button_states.get(&k.player_data(action_data.id))
-                        {
-                            match key_state {
-                                Some(ButtonState::Pressed) => {
-                                    just_pressed_at_least_one_key = true;
-                                    continue;
+                        for k in binding_keys.iter() {
+                            if let Some(key_state) =
+                                input.button_states.get(&k.player_data(action_data.id))
+                            {
+                                match key_state {
+                                    Some(ButtonState::Pressed) => {
+                                        just_pressed_at_least_one_key = true;
+                                        continue;
+                                    }
+                                    Some(ButtonState::Held) => {
+                                        continue;
+                                    }
+                                    _ => continue 'bindings,
                                 }
-                                Some(ButtonState::Held) => {
-                                    continue;
-                                }
-                                _ => continue 'bindings,
                             }
-                        } 
 
-                        continue 'bindings;
-                    }
-
-                    // at least one 1 key was just pressed, the rest can be held
-                    if just_pressed_at_least_one_key {
-                        input
-                            .button_actions
-                            .insert(*action_data, ActionState::Pressed);
-                        continue 'actions;
-                    }
-                }
-
-                input.button_actions.remove(action_data);
-            }
-            Some(ActionState::Pressed | ActionState::Held(..)) => {
-                // check if all keys are still held
-                'held_bindings: for binding_keys in bindings {
-                    for k in binding_keys.iter() {
-                        if let Some(key_state) =
-                            input.button_states.get(&k.player_data(action_data.id))
-                        {
-                            match key_state {
-                                Some(ButtonState::Pressed | ButtonState::Held) => {
-                                    continue;
-                                }
-                                _ => continue 'held_bindings,
-                            }
+                            continue 'bindings;
                         }
-                            
-                        continue 'held_bindings;
+
+                        // at least one 1 key was just pressed, the rest can be held
+                        if just_pressed_at_least_one_key {
+                            input
+                                .button_actions
+                                .insert(*action_data, ActionState::Pressed);
+                            continue 'actions;
+                        }
+                    }
+
+                    input.button_actions.remove(action_data);
+                }
+                Some(ActionState::Pressed | ActionState::Held(..)) => {
+                    // check if all keys are still held
+                    'held_bindings: for binding_keys in bindings {
+                        for k in binding_keys.iter() {
+                            if let Some(key_state) =
+                                input.button_states.get(&k.player_data(action_data.id))
+                            {
+                                match key_state {
+                                    Some(ButtonState::Pressed | ButtonState::Held) => {
+                                        continue;
+                                    }
+                                    _ => continue 'held_bindings,
+                                }
+                            }
+
+                            continue 'held_bindings;
+                        }
+
+                        input.button_actions.insert(
+                            *action_data,
+                            ActionState::Held(ActiveKeyData {
+                                duration: current_duration + time.delta_seconds(),
+                            }),
+                        );
+                        continue 'actions;
                     }
 
                     input.button_actions.insert(
                         *action_data,
-                        ActionState::Held(ActiveKeyData {
+                        ActionState::Released(ActiveKeyData {
                             duration: current_duration + time.delta_seconds(),
                         }),
                     );
-                    continue 'actions;
                 }
-
-                input.button_actions.insert(
-                    *action_data,
-                    ActionState::Released(ActiveKeyData {
-                        duration: current_duration + time.delta_seconds(),
-                    }),
-                );
             }
         }
     }
@@ -838,54 +665,76 @@ pub(crate) fn process_axis_actions<
     TKeyAction: ActionMapInput + 'static,
     TAxisAction: ActionMapInput + 'static,
 >(
-    mut input: ResMut<ActionInput<TKeyAction, TAxisAction>>,
-    map: Res<ActionMap<TKeyAction, TAxisAction>>,
+    mut input_q: Query<(
+        &ActionMap<TKeyAction, TAxisAction>,
+        &mut ActionInput<TKeyAction, TAxisAction>,
+    )>,
 ) {
-    for (axis_action_data, bindings) in &map.axis_action_bindings {
-        let axis_value = bindings
-            .iter()
-            .map(|b| {
-                let (val, deadzone) = match b {
-                    (AxisBinding::Buttons(neg, pos), _) => {
-                        let mut val = 0.;
-                        if input.button_is_pressed_or_held(&neg.player_data(axis_action_data.id)) {
-                            val -= 1.;
+    for (map, mut input) in input_q.iter_mut() {
+        for (axis_action_data, bindings) in &map.axis_action_bindings {
+            let axis_value = bindings
+                .iter()
+                .map(|b| {
+                    let (val, deadzone) = match b {
+                        (AxisBinding::Buttons(neg, pos), _) => {
+                            let mut val = 0.;
+                            if input
+                                .button_is_pressed_or_held(&neg.player_data(axis_action_data.id))
+                            {
+                                val -= 1.;
+                            }
+                            if input
+                                .button_is_pressed_or_held(&pos.player_data(axis_action_data.id))
+                            {
+                                val += 1.;
+                            }
+
+                            (val, 0)
                         }
-                        if input.button_is_pressed_or_held(&pos.player_data(axis_action_data.id)) {
-                            val += 1.;
+                        (AxisBinding::GamepadAxis(gamepad_axis), deadzone) => {
+                            let axis_data = PlayerData {
+                                value: *gamepad_axis,
+                                id: axis_action_data.id,
+                            };
+
+                            (
+                                *input.gamepad_axes_values.get(&axis_data).unwrap_or(&0.),
+                                *deadzone,
+                            )
                         }
+                    };
 
-                        (val, 0)
-                    }
-                    (AxisBinding::GamepadAxis(gamepad_axis), deadzone) => {
-                        let axis_data = PlayerData {
-                            value: *gamepad_axis,
-                            id: axis_action_data.id,
-                        };
-
-                        (
-                            *input.gamepad_axes_values.get(&axis_data).unwrap_or(&0.),
-                            *deadzone,
-                        )
-                    }
-                };
-
-                if deadzone == 0 {
-                    val
-                } else {
-                    let deadzone = deadzone as f32 / DEADZONE_PRECISION;
-                    if val.abs() > deadzone {
-                        // normalize the value back to the 0.0..1.0 range
-                        let normalized_value = (val.abs() - deadzone) / (1. - deadzone);
-                        normalized_value * val.signum()
+                    if deadzone == 0 {
+                        val
                     } else {
-                        0.
+                        let deadzone = deadzone as f32 / DEADZONE_PRECISION;
+                        if val.abs() > deadzone {
+                            // normalize the value back to the 0.0..1.0 range
+                            let normalized_value = (val.abs() - deadzone) / (1. - deadzone);
+                            normalized_value * val.signum()
+                        } else {
+                            0.
+                        }
                     }
-                }
-            })
-            .fold(0., |a: f32, b: f32| if a.abs() > b.abs() { a } else { b });
+                })
+                .fold(0., |a: f32, b: f32| if a.abs() > b.abs() { a } else { b });
 
-        input.axes.insert(*axis_action_data, axis_value);
+            input.axes.insert(*axis_action_data, axis_value);
+        }
+    }
+}
+
+pub(crate) fn add_input<
+    TKeyAction: ActionMapInput + 'static,
+    TAxisAction: ActionMapInput + 'static,
+>(
+    mut commands: Commands,
+    map_q: Query<Entity, Added<ActionMap<TKeyAction, TAxisAction>>>,
+) {
+    for map_e in map_q.iter() {
+        commands
+            .entity(map_e)
+            .insert(ActionInput::<TKeyAction, TAxisAction>::default());
     }
 }
 
