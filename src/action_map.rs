@@ -372,7 +372,7 @@ impl<TKeyAction: ActionMapInput, TAxisAction: ActionMapInput> ActionMap<TKeyActi
 }
 
 #[derive(Component)]
-pub struct ActionInput<TKeyAction, TAxisAction> {
+pub struct ActionInput<TKeyAction, TAxisAction = NoAxis> {
     pub(crate) button_states: HashMap<DeviceData<ButtonCode>, Option<ButtonState>>,
     button_actions: HashMap<PlayerData<TKeyAction>, ActionState>,
     gamepad_axes_values: HashMap<PlayerData<GamepadAxisType>, f32>,
